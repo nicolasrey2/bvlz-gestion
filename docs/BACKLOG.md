@@ -16,11 +16,16 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 > - UX: toggle de tema global en todas las pantallas; confirmación en borrados.
 > - Calidad: tests de `partesDetalle` y `activacion`; `pnpm build` sumado al CI.
 >
+> **2º batch (UX + calidad):** feedback al interactuar (BotonAccion con spinner +
+> `loading.tsx` en todas las secciones), PWA instalable (manifest), sección
+> "concurrentes" + logo en el PDF del parte, auth de la home más liviana, y 47
+> tests de Server Actions (→ **127 tests**). Smoke de rutas + manifest OK.
+>
 > **Pendiente = ops (tu mano) + futuro:** Paso 6 Supabase, DB de prod separada,
-> región/latencia, RLS y rate-limiting (dashboard/infra); PWA, notificaciones,
-> fichado por PIN/QR, cuarteleros como usuarios; y menores: wizard/fotos/logo del
-> parte, sección "concurrentes", calendario en grilla, unificar getUser/getAuthUser,
-> loading states, padding cosmético de hora.
+> región/latencia, RLS y rate-limiting (dashboard/infra); notificaciones, fichado
+> por PIN/QR, cuarteleros como usuarios, service worker offline (PWA); y menores:
+> wizard del parte, adjuntar fotos al parte, calendario en grilla, reabrir parte
+> cerrado, unificar el doble getUser (proxy+página), padding cosmético de hora.
 
 ---
 
