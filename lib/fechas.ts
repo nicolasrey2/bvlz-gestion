@@ -12,6 +12,8 @@ export const TZ = "America/Argentina/Buenos_Aires";
 
 // --- Instantes (hora de Argentina) ------------------------------------------
 
+// hourCycle "h23" fuerza 0–23 con medianoche = "00" (no "24"). Con `hour12:
+// false` algunas versiones de ICU usan el ciclo 1–24 y muestran "24:05".
 export function fmtFechaHora(d: Date): string {
   return d.toLocaleString("es-AR", {
     timeZone: TZ,
@@ -19,7 +21,7 @@ export function fmtFechaHora(d: Date): string {
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   });
 }
 
@@ -28,7 +30,7 @@ export function fmtHora(d: Date): string {
     timeZone: TZ,
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   });
 }
 
