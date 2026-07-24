@@ -69,6 +69,8 @@ export default async function Home() {
         <Tarjeta href="/tareas" titulo="Tareas" desc="Crear y seguir" />
         <Tarjeta href="/guardias" titulo="Guardias" desc="Calendario mensual" />
         <Tarjeta href="/fichado" titulo="Fichado" desc="Entrada y salida" />
+        <Tarjeta href="/novedades" titulo="Novedades" desc="Cuaderno del dto" />
+        <Tarjeta href="/partes" titulo="Partes" desc="Intervenciones" />
         <Tarjeta
           href="/destacamento"
           titulo="Destacamento"

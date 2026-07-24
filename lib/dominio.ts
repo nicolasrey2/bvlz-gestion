@@ -5,6 +5,9 @@ import type {
   EstadoTarea,
   TipoGuardia,
   TipoFichada,
+  TipoNovedad,
+  TipoSiniestro,
+  EstadoParte,
 } from "@/generated/prisma/client";
 
 /// Etiquetas legibles de los roles funcionales (para UI).
@@ -89,4 +92,39 @@ export function horarioGuardia(tipo: TipoGuardia): string {
 export const NOMBRE_TIPO_FICHADA: Record<TipoFichada, string> = {
   ENTRADA: "Entrada",
   SALIDA: "Salida",
+};
+
+// --- Cuaderno de novedades ---------------------------------------------------
+
+export const NOMBRE_TIPO_NOVEDAD: Record<TipoNovedad, string> = {
+  ROTURA: "Rotura / daño",
+  FALTANTE: "Faltante de material",
+  EDILICIO: "Edilicio",
+  OBSERVACION: "Observación",
+  OTRO: "Otro",
+};
+
+export const TIPOS_NOVEDAD: { value: TipoNovedad; label: string }[] = (
+  Object.keys(NOMBRE_TIPO_NOVEDAD) as TipoNovedad[]
+).map((value) => ({ value, label: NOMBRE_TIPO_NOVEDAD[value] }));
+
+// --- Partes de intervención --------------------------------------------------
+
+export const NOMBRE_TIPO_SINIESTRO: Record<TipoSiniestro, string> = {
+  INCENDIO: "Incendio",
+  RESCATE: "Rescate",
+  ACCIDENTE_VIAL: "Accidente vial",
+  FUGA_GAS: "Fuga de gas",
+  RESCATE_ANIMAL: "Rescate de animal",
+  FERROVIARIO: "Siniestro ferroviario",
+  OTRO: "Otro",
+};
+
+export const TIPOS_SINIESTRO: { value: TipoSiniestro; label: string }[] = (
+  Object.keys(NOMBRE_TIPO_SINIESTRO) as TipoSiniestro[]
+).map((value) => ({ value, label: NOMBRE_TIPO_SINIESTRO[value] }));
+
+export const NOMBRE_ESTADO_PARTE: Record<EstadoParte, string> = {
+  ABIERTO: "Abierto",
+  CERRADO: "Cerrado",
 };

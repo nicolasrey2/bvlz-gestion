@@ -57,10 +57,12 @@ model Destacamento {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  usuarios Usuario[]
-  areas    Area[]
-  tareas   Tarea[]
-  guardias Guardia[]
+  usuarios  Usuario[]
+  areas     Area[]
+  tareas    Tarea[]
+  guardias  Guardia[]
+  novedades Novedad[]
+  partes    ParteIntervencion[]
 
   @@map("destacamento")
 }
@@ -91,6 +93,9 @@ model Usuario {
   comentarios     TareaComentario[]
   guardias        GuardiaParticipante[]
   fichadas        Fichada[]
+  novedades       Novedad[]
+  partesCreados   ParteIntervencion[]   @relation("ParteCreador")
+  partesCerrados  ParteIntervencion[]   @relation("ParteCerrador")
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -304,4 +309,101 @@ model Fichada {
   @@index([destacamentoId, momento])
   @@index([usuarioId])
   @@map("fichada")
+}
+
+// ---------------------------------------------------------------------------
+// Cuaderno de novedades (PRD §4.6)
+// ---------------------------------------------------------------------------
+
+enum TipoNovedad {
+  ROTURA
+  FALTANTE
+  EDILICIO
+  OBSERVACION
+  OTRO
+}
+
+model Novedad {
+  id             String      @id @default(cuid())
+  destacamentoId String
+  autorId        String
+  tipo           TipoNovedad @default(OBSERVACION)
+  texto          String
+  createdAt      DateTime    @default(now())
+
+  destacamento Destacamento @relation(fields: [destacamentoId], references: [id])
+  autor        Usuario      @relation(fields: [autorId], references: [id])
+
+  @@index([destacamentoId, createdAt])
+  @@map("novedad")
+}
+
+// ---------------------------------------------------------------------------
+// Partes de intervención (PRD §4.7). v1: campos más usados + secciones
+// condicionales/extensibles en JSON. Formulario oficial: docs/parte-intervencion-DTO3.pdf
+// ---------------------------------------------------------------------------
+
+enum TipoSiniestro {
+  INCENDIO
+  RESCATE
+  ACCIDENTE_VIAL
+  FUGA_GAS
+  RESCATE_ANIMAL
+  FERROVIARIO
+  OTRO
+}
+
+enum EstadoParte {
+  ABIERTO // se puede editar
+  CERRADO // no editable (PRD §4.7)
+}
+
+model ParteIntervencion {
+  id             String        @id @default(cuid())
+  destacamentoId String
+  estado         EstadoParte   @default(ABIERTO)
+  tipoSiniestro  TipoSiniestro
+
+  // Encabezado
+  servicioNro String?
+  cuartel     String?
+  fecha       DateTime?
+  objeto      String?
+  direccion   String?
+  localidad   String?
+
+  // Tiempos (texto HH:MM)
+  horaAviso   String?
+  horaLlegada String?
+  horaRegreso String?
+
+  // Recursos
+  dotaciones Int?
+  bomberos   Int?
+  unidades   String?
+
+  descripcion String? // descripción de las tareas
+
+  // Secciones condicionales/extensibles (vehículos, inmueble, víctimas, etc.)
+  detalle  Json?
+  // Personal que concurrió / en el cuartel: [{ jerarquia, apellido }]
+  personal Json?
+
+  // Firmas
+  datosTomadosPor String?
+  oficialActuante String?
+  jefeCuerpo      String?
+
+  creadorId    String
+  cerradoPorId String?
+  cerradoEn    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  destacamento Destacamento @relation(fields: [destacamentoId], references: [id])
+  creador      Usuario      @relation("ParteCreador", fields: [creadorId], references: [id])
+  cerradoPor   Usuario?     @relation("ParteCerrador", fields: [cerradoPorId], references: [id])
+
+  @@index([destacamentoId])
+  @@map("parte_intervencion")
 }
