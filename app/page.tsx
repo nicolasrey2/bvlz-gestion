@@ -1,21 +1,21 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { getAuthUser, getUsuarioActual, getContextoAuth } from "@/lib/auth";
+import { getAuthUser, getUsuarioActual, contextoDesdeUsuario } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { NOMBRE_ROL } from "@/lib/dominio";
 import { logout } from "./login/actions";
 import logoCuartel from "@/public/logo-cuartel.png";
 
 export default async function Home() {
-  // El proxy ya redirige a no autenticados, pero reforzamos en el servidor.
-  const authUser = await getAuthUser();
-  if (!authUser) redirect("/login");
-
+  // Camino feliz: una sola consulta (getUsuarioActual). El proxy ya redirige a
+  // los no autenticados; solo si no hay usuario vinculado chequeamos la sesión.
   const usuario = await getUsuarioActual();
 
-  // Autenticado en Supabase pero sin Usuario vinculado: no puede operar.
   if (!usuario) {
+    const authUser = await getAuthUser();
+    if (!authUser) redirect("/login");
+    // Autenticado en Supabase pero sin Usuario vinculado: no puede operar.
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="max-w-sm text-zinc-600 dark:text-zinc-400">
@@ -31,8 +31,8 @@ export default async function Home() {
     );
   }
 
-  const ctx = await getContextoAuth();
-  const esConduccion = ctx ? puedeGestionarUsuarios(ctx) : false;
+  const ctx = contextoDesdeUsuario(usuario);
+  const esConduccion = puedeGestionarUsuarios(ctx);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6 p-6">

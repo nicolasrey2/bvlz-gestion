@@ -23,7 +23,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { FormEvidencia } from "@/components/FormEvidencia";
 import { ReasignarTarea } from "@/components/ReasignarTarea";
-import { BotonConfirmar } from "@/components/BotonConfirmar";
+import { BotonAccion } from "@/components/BotonAccion";
 import { fmtFecha, fmtFechaDia, fmtFechaHora } from "@/lib/fechas";
 
 export default async function DetalleTareaPage({
@@ -117,12 +117,13 @@ export default async function DetalleTareaPage({
             {puedeEliminar && (
               <form action={eliminarTarea}>
                 <input type="hidden" name="tareaId" value={tarea.id} />
-                <BotonConfirmar
-                  mensaje="¿Eliminar esta tarea?"
+                <BotonAccion
+                  confirmar="¿Eliminar esta tarea?"
+                  pendiente="Eliminando…"
                   className="text-xs font-medium text-red-700 underline"
                 >
                   Eliminar
-                </BotonConfirmar>
+                </BotonAccion>
               </form>
             )}
           </div>
@@ -183,9 +184,12 @@ export default async function DetalleTareaPage({
         {tarea.estado === "PENDIENTE" && puedeEnviar && (
           <form action={enviarARevision}>
             <input type="hidden" name="tareaId" value={tarea.id} />
-            <button className="w-full rounded-lg bg-amber-600 px-4 py-2.5 text-base font-semibold text-white">
+            <BotonAccion
+              pendiente="Enviando…"
+              className="w-full rounded-lg bg-amber-600 px-4 py-2.5 text-base font-semibold text-white"
+            >
               Marcar como hecha (enviar a revisión)
-            </button>
+            </BotonAccion>
           </form>
         )}
 
@@ -193,15 +197,21 @@ export default async function DetalleTareaPage({
           <div className="flex gap-2">
             <form action={aprobarTarea} className="flex-1">
               <input type="hidden" name="tareaId" value={tarea.id} />
-              <button className="w-full rounded-lg bg-green-700 px-4 py-2.5 text-base font-semibold text-white">
+              <BotonAccion
+                pendiente="Aprobando…"
+                className="w-full rounded-lg bg-green-700 px-4 py-2.5 text-base font-semibold text-white"
+              >
                 Aprobar
-              </button>
+              </BotonAccion>
             </form>
             <form action={rechazarTarea} className="flex-1">
               <input type="hidden" name="tareaId" value={tarea.id} />
-              <button className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-base font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+              <BotonAccion
+                pendiente="Rechazando…"
+                className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-base font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+              >
                 Rechazar
-              </button>
+              </BotonAccion>
             </form>
           </div>
         )}
@@ -286,9 +296,12 @@ export default async function DetalleTareaPage({
             placeholder="Escribí un comentario… (ej. no lo pude hacer porque…)"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-red-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
           />
-          <button className="self-end rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white">
+          <BotonAccion
+            pendiente="Comentando…"
+            className="self-end rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white"
+          >
             Comentar
-          </button>
+          </BotonAccion>
         </form>
       </section>
     </main>

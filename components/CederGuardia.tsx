@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cederGuardia } from "@/server/guardias";
+import { BotonAccion } from "@/components/BotonAccion";
 
 /// Control para ceder la guardia a otro bombero (se despliega al tocar).
 export function CederGuardia({
@@ -40,9 +41,12 @@ export function CederGuardia({
           </option>
         ))}
       </select>
-      <button className="rounded-lg bg-red-700 px-3 py-1.5 text-sm font-semibold text-white">
+      <BotonAccion
+        pendiente="Cediendo…"
+        className="rounded-lg bg-red-700 px-3 py-1.5 text-sm font-semibold text-white"
+      >
         Ceder
-      </button>
+      </BotonAccion>
     </form>
   );
 }

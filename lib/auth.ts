@@ -28,13 +28,19 @@ export async function getUsuarioActual() {
 }
 
 /// Arma el ContextoAuth que consumen los helpers de lib/permisos.
-export async function getContextoAuth(): Promise<ContextoAuth | null> {
-  const usuario = await getUsuarioActual();
-  if (!usuario) return null;
+type UsuarioActual = NonNullable<Awaited<ReturnType<typeof getUsuarioActual>>>;
 
+/// Deriva el ContextoAuth de un Usuario ya cargado, sin volver a consultar la
+/// DB (útil en páginas que ya trajeron el usuario, como la home).
+export function contextoDesdeUsuario(usuario: UsuarioActual): ContextoAuth {
   return {
     usuarioId: usuario.id,
     destacamentoId: usuario.destacamentoId,
     roles: usuario.asignaciones.map((a) => ({ rol: a.rol, areaId: a.areaId })),
   };
+}
+
+export async function getContextoAuth(): Promise<ContextoAuth | null> {
+  const usuario = await getUsuarioActual();
+  return usuario ? contextoDesdeUsuario(usuario) : null;
 }

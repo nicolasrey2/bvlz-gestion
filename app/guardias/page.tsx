@@ -7,7 +7,7 @@ import { puedeGestionarGuardias } from "@/lib/permisos";
 import { NOMBRE_TIPO_GUARDIA, horarioGuardia } from "@/lib/dominio";
 import { eliminarGuardia } from "@/server/guardias";
 import { CederGuardia } from "@/components/CederGuardia";
-import { BotonConfirmar } from "@/components/BotonConfirmar";
+import { BotonAccion } from "@/components/BotonAccion";
 import { fmtDiaSemana, hoyArgentina, rangoMesUTC } from "@/lib/fechas";
 
 const MESES = [
@@ -217,12 +217,13 @@ function TarjetaGuardia({
             </Link>
             <form action={eliminarGuardia}>
               <input type="hidden" name="guardiaId" value={guardia.id} />
-              <BotonConfirmar
-                mensaje="¿Eliminar esta guardia?"
+              <BotonAccion
+                confirmar="¿Eliminar esta guardia?"
+                pendiente="Eliminando…"
                 className="text-xs font-medium text-red-700 underline"
               >
                 Eliminar
-              </BotonConfirmar>
+              </BotonAccion>
             </form>
           </div>
         )}

@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { editarNovedad, eliminarNovedad, type EstadoForm } from "@/server/novedades";
-import { BotonConfirmar } from "@/components/BotonConfirmar";
+import { BotonAccion } from "@/components/BotonAccion";
 import type { TipoNovedad } from "@/generated/prisma/client";
 
 const input =
@@ -49,12 +49,13 @@ export function AccionesNovedad({
         </button>
         <form action={eliminarNovedad}>
           <input type="hidden" name="id" value={id} />
-          <BotonConfirmar
-            mensaje="¿Eliminar esta novedad? No se puede deshacer."
+          <BotonAccion
+            confirmar="¿Eliminar esta novedad? No se puede deshacer."
+            pendiente="Eliminando…"
             className="text-red-700 underline dark:text-red-400"
           >
             Eliminar
-          </BotonConfirmar>
+          </BotonAccion>
         </form>
       </div>
     );

@@ -14,6 +14,7 @@ import { RegenerarActivacion } from "@/components/RegenerarActivacion";
 import { FormEditarContacto } from "@/components/FormEditarContacto";
 import { ResetearPassword } from "@/components/ResetearPassword";
 import { fmtFecha } from "@/lib/fechas";
+import { BotonAccion } from "@/components/BotonAccion";
 
 const input =
   "rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-red-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100";
@@ -118,9 +119,12 @@ export default async function DetalleUsuarioPage({
               </option>
             ))}
           </select>
-          <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700">
+          <BotonAccion
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700"
+            pendiente="Guardando…"
+          >
             Guardar
-          </button>
+          </BotonAccion>
         </form>
       </section>
 
@@ -141,9 +145,12 @@ export default async function DetalleUsuarioPage({
                 <form action={finalizarRol}>
                   <input type="hidden" name="asignacionId" value={a.id} />
                   <input type="hidden" name="usuarioId" value={usuario.id} />
-                  <button className="text-xs font-medium text-red-700 underline">
+                  <BotonAccion
+                    className="text-xs font-medium text-red-700 underline"
+                    pendiente="Finalizando…"
+                  >
                     Finalizar
-                  </button>
+                  </BotonAccion>
                 </form>
               </li>
             ))}
@@ -191,9 +198,12 @@ export default async function DetalleUsuarioPage({
               name="activo"
               value={usuario.activo ? "false" : "true"}
             />
-            <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700">
+            <BotonAccion
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700"
+              pendiente="Guardando…"
+            >
               {usuario.activo ? "Desactivar" : "Activar"}
-            </button>
+            </BotonAccion>
           </form>
         </div>
       </section>
