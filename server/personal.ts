@@ -14,6 +14,9 @@ import type { Rango, RolTipo } from "@/generated/prisma/client";
 // En éxito devuelve el path del link de activación para que el encargado lo comparta.
 export type EstadoForm = { error: string } | { ok: true; path: string } | null;
 
+// En éxito no hay nada más que devolver: la UI solo confirma el guardado.
+export type EstadoEditar = { error: string } | { ok: true } | null;
+
 const RANGOS_VALIDOS = new Set(RANGOS.map((r) => r.value));
 const ROLES_VALIDOS = new Set(Object.keys(NOMBRE_ROL));
 
@@ -25,6 +28,26 @@ const esquema = z.object({
   rol: z.string().optional(),
   areaId: z.string().optional(),
 });
+
+const esquemaContacto = z.object({
+  usuarioId: z.string().min(1, "Falta el usuario."),
+  // Todos opcionales: si no vienen (o llegan vacíos) no se tocan.
+  nombre: z.string().trim().optional(),
+  apellido: z.string().trim().optional(),
+  legajo: z.string().trim().optional(),
+  dni: z.string().trim().optional(),
+  telefono: z.string().trim().optional(),
+});
+
+/// Detecta si el error de Supabase Auth al crear una cuenta es por email
+/// duplicado. El texto exacto varía entre versiones ("User already
+/// registered", "email address already exists", etc.), por eso se busca de
+/// forma laxa (case-insensitive, por substring) en vez de comparar exacto.
+function esEmailDuplicado(mensaje: string | undefined): boolean {
+  if (!mensaje) return false;
+  const texto = mensaje.toLowerCase();
+  return texto.includes("registered") || texto.includes("exists");
+}
 
 /// Alta de un usuario del destacamento. Solo la conducción del dto (PRD §3.5).
 /// Crea el usuario en Supabase Auth y lo vincula con la tabla Usuario, con un
@@ -82,6 +105,9 @@ export async function crearUsuario(
     email_confirm: true,
   });
   if (error || !data.user) {
+    if (esEmailDuplicado(error?.message)) {
+      return { error: "Ya existe un usuario con ese email." };
+    }
     return { error: `No se pudo crear la cuenta: ${error?.message ?? "error"}` };
   }
 
@@ -226,4 +252,51 @@ export async function asignarRol(formData: FormData) {
 
   await prisma.asignacionRol.create({ data: { usuarioId, rol, areaId } });
   revalidatePath(`/personal/${usuarioId}`);
+}
+
+/// Edita los datos de contacto de un usuario del destacamento: legajo, DNI,
+/// teléfono y, opcionalmente, nombre/apellido. Solo conducción. Los campos
+/// vacíos de legajo/DNI/teléfono limpian el dato; nombre/apellido vacíos se
+/// dejan como estaban (son obligatorios en el dominio, no se pueden borrar).
+export async function editarContacto(
+  _prev: EstadoEditar,
+  formData: FormData,
+): Promise<EstadoEditar> {
+  const ctx = await getContextoAuth();
+  if (!ctx) return { error: "Sesión no válida." };
+  if (!puedeGestionarUsuarios(ctx)) {
+    return { error: "No tenés permisos para editar estos datos." };
+  }
+
+  const parsed = esquemaContacto.safeParse({
+    usuarioId: formData.get("usuarioId"),
+    nombre: formData.get("nombre") ?? undefined,
+    apellido: formData.get("apellido") ?? undefined,
+    legajo: formData.get("legajo") ?? undefined,
+    dni: formData.get("dni") ?? undefined,
+    telefono: formData.get("telefono") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const { usuarioId, nombre, apellido, legajo, dni, telefono } = parsed.data;
+
+  const usuario = await prisma.usuario.findFirst({
+    where: { id: usuarioId, destacamentoId: ctx.destacamentoId },
+  });
+  if (!usuario) return { error: "Usuario no encontrado." };
+
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: {
+      ...(nombre ? { nombre } : {}),
+      ...(apellido ? { apellido } : {}),
+      legajo: legajo ? legajo : null,
+      dni: dni ? dni : null,
+      telefono: telefono ? telefono : null,
+    },
+  });
+
+  revalidatePath(`/personal/${usuario.id}`);
+  return { ok: true };
 }

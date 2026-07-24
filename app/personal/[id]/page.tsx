@@ -11,6 +11,8 @@ import {
 } from "@/server/personal";
 import { FormAsignarRol } from "@/components/FormAsignarRol";
 import { RegenerarActivacion } from "@/components/RegenerarActivacion";
+import { FormEditarContacto } from "@/components/FormEditarContacto";
+import { ResetearPassword } from "@/components/ResetearPassword";
 import { fmtFecha } from "@/lib/fechas";
 
 const input =
@@ -73,6 +75,36 @@ export default async function DetalleUsuarioPage({
           <RegenerarActivacion usuarioId={usuario.id} />
         </section>
       )}
+
+      {/* Seguridad: reseteo de contraseña (solo cuentas ya activadas; las
+          pendientes ya tienen su link arriba, vía RegenerarActivacion). */}
+      {usuario.cuentaActivada && (
+        <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+            Seguridad
+          </h2>
+          <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Si la persona perdió el acceso a su cuenta, podés resetear la
+            contraseña y compartirle un nuevo link para que defina una nueva.
+          </p>
+          <ResetearPassword usuarioId={usuario.id} />
+        </section>
+      )}
+
+      {/* Datos de contacto */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+          Datos de contacto
+        </h2>
+        <FormEditarContacto
+          usuarioId={usuario.id}
+          nombre={usuario.nombre}
+          apellido={usuario.apellido}
+          legajo={usuario.legajo}
+          dni={usuario.dni}
+          telefono={usuario.telefono}
+        />
+      </section>
 
       {/* Rango */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">

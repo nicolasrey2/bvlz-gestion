@@ -105,3 +105,39 @@ export async function regenerarActivacion(
   revalidatePath(`/personal/${usuario.id}`);
   return { ok: true, path: `/activar/${activacion.token}` };
 }
+
+/// Resetea la contraseña de una cuenta YA activada, reutilizando el mismo
+/// mecanismo que la activación inicial: la cuenta vuelve a quedar pendiente
+/// (cuentaActivada = false) con un nuevo token, y se devuelve el link para
+/// que el encargado se lo pase a la persona y ésta defina una clave nueva.
+/// Solo conducción.
+export async function resetearPassword(
+  _prev: EstadoRegenerar,
+  formData: FormData,
+): Promise<EstadoRegenerar> {
+  const ctx = await getContextoAuth();
+  if (!ctx) return { error: "Sesión no válida." };
+  if (!puedeGestionarUsuarios(ctx)) return { error: "Sin permisos." };
+
+  const usuarioId = String(formData.get("usuarioId") ?? "");
+  const usuario = await prisma.usuario.findFirst({
+    where: { id: usuarioId, destacamentoId: ctx.destacamentoId },
+  });
+  if (!usuario) return { error: "Usuario no encontrado." };
+  if (!usuario.cuentaActivada) {
+    return { error: "La cuenta todavía no fue activada." };
+  }
+
+  const activacion = generarActivacion();
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: {
+      cuentaActivada: false,
+      activacionTokenHash: activacion.hash,
+      activacionExpira: activacion.expira,
+    },
+  });
+
+  revalidatePath(`/personal/${usuario.id}`);
+  return { ok: true, path: `/activar/${activacion.token}` };
+}
