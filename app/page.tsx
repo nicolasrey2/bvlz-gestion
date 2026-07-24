@@ -5,7 +5,6 @@ import { getAuthUser, getUsuarioActual, getContextoAuth } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { NOMBRE_ROL } from "@/lib/dominio";
 import { logout } from "./login/actions";
-import { ToggleTema } from "@/components/ToggleTema";
 import logoCuartel from "@/public/logo-cuartel.png";
 
 export default async function Home() {
@@ -46,14 +45,11 @@ export default async function Home() {
             className="h-auto w-32 sm:w-40"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <ToggleTema />
-          <form action={logout}>
-            <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-              Salir
-            </button>
-          </form>
-        </div>
+        <form action={logout}>
+          <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+            Salir
+          </button>
+        </form>
       </header>
 
       <div>
