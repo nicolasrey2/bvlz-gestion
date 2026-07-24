@@ -87,6 +87,61 @@ export async function crearGuardia(
   redirect(`/guardias?mes=${mes}`);
 }
 
+/// Cede/intercambia una guardia interna a otro bombero. Lo arreglan entre pares
+/// (sin aprobación) y queda registrado (PRD §4.4). Solo un participante actual
+/// puede ceder su lugar.
+export async function cederGuardia(formData: FormData) {
+  const ctx = await getContextoAuth();
+  if (!ctx) redirect("/login");
+
+  const guardiaId = String(formData.get("guardiaId") ?? "");
+  const aUsuarioId = String(formData.get("aUsuarioId") ?? "");
+  if (!aUsuarioId || aUsuarioId === ctx.usuarioId) return;
+
+  const guardia = await prisma.guardia.findFirst({
+    where: { id: guardiaId, destacamentoId: ctx.destacamentoId, tipo: "INTERNA" },
+    include: { participantes: true },
+  });
+  if (!guardia) return;
+
+  // Quien cede debe estar en la guardia.
+  if (!guardia.participantes.some((p) => p.usuarioId === ctx.usuarioId)) return;
+
+  const [de, destino] = await Promise.all([
+    prisma.usuario.findUnique({
+      where: { id: ctx.usuarioId },
+      select: { nombre: true, apellido: true },
+    }),
+    prisma.usuario.findFirst({
+      where: { id: aUsuarioId, destacamentoId: ctx.destacamentoId },
+      select: { nombre: true, apellido: true },
+    }),
+  ]);
+  if (!de || !destino) return;
+
+  const yaEsta = guardia.participantes.some((p) => p.usuarioId === aUsuarioId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.guardiaParticipante.deleteMany({
+      where: { guardiaId, usuarioId: ctx.usuarioId },
+    });
+    if (!yaEsta) {
+      await tx.guardiaParticipante.create({ data: { guardiaId, usuarioId: aUsuarioId } });
+    }
+    await tx.intercambioGuardia.create({
+      data: {
+        guardiaId,
+        deUsuarioId: ctx.usuarioId,
+        aUsuarioId,
+        deNombre: `${de.apellido}, ${de.nombre}`,
+        aNombre: `${destino.apellido}, ${destino.nombre}`,
+      },
+    });
+  });
+
+  revalidatePath("/guardias");
+}
+
 /// Elimina una guardia (solo conducción).
 export async function eliminarGuardia(formData: FormData) {
   const ctx = await getContextoAuth();

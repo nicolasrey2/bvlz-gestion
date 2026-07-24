@@ -68,6 +68,7 @@ export default async function Home() {
       <nav className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Tarjeta href="/tareas" titulo="Tareas" desc="Crear y seguir" />
         <Tarjeta href="/guardias" titulo="Guardias" desc="Calendario mensual" />
+        <Tarjeta href="/fichado" titulo="Fichado" desc="Entrada y salida" />
         <Tarjeta
           href="/destacamento"
           titulo="Destacamento"

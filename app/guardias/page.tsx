@@ -6,6 +6,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeGestionarGuardias } from "@/lib/permisos";
 import { NOMBRE_TIPO_GUARDIA, horarioGuardia } from "@/lib/dominio";
 import { eliminarGuardia } from "@/server/guardias";
+import { CederGuardia } from "@/components/CederGuardia";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -13,8 +14,10 @@ const MESES = [
 ];
 
 type GuardiaConParticipantes = Prisma.GuardiaGetPayload<{
-  include: { participantes: { include: { usuario: true } } };
+  include: { participantes: { include: { usuario: true } }; intercambios: true };
 }>;
+
+type UsuarioMin = { id: string; nombre: string; apellido: string };
 
 function mesStr(anio: number, mes1a12: number): string {
   return `${anio}-${String(mes1a12).padStart(2, "0")}`;
@@ -46,8 +49,17 @@ export default async function GuardiasPage({
       destacamentoId: ctx.destacamentoId,
       fecha: { gte: inicio, lt: fin },
     },
-    include: { participantes: { include: { usuario: true } } },
+    include: {
+      participantes: { include: { usuario: true } },
+      intercambios: { orderBy: { createdAt: "asc" } },
+    },
     orderBy: [{ fecha: "asc" }, { tipo: "asc" }],
+  });
+
+  const usuarios = await prisma.usuario.findMany({
+    where: { destacamentoId: ctx.destacamentoId, activo: true },
+    orderBy: [{ apellido: "asc" }],
+    select: { id: true, nombre: true, apellido: true },
   });
 
   const puedeGestionar = puedeGestionarGuardias(ctx);
@@ -147,6 +159,8 @@ export default async function GuardiasPage({
                     key={g.id}
                     guardia={g}
                     puedeGestionar={puedeGestionar}
+                    usuarioId={ctx.usuarioId}
+                    usuarios={usuarios}
                   />
                 ))}
               </section>
@@ -161,9 +175,13 @@ export default async function GuardiasPage({
 function TarjetaGuardia({
   guardia,
   puedeGestionar,
+  usuarioId,
+  usuarios,
 }: {
   guardia: GuardiaConParticipantes;
   puedeGestionar: boolean;
+  usuarioId: string;
+  usuarios: UsuarioMin[];
 }) {
   const quienes =
     guardia.tipo === "CUARTELERO"
@@ -173,6 +191,11 @@ function TarjetaGuardia({
             .map((p) => `${p.usuario.apellido}, ${p.usuario.nombre}`)
             .join(" · ")
         : "sin asignar";
+
+  // El usuario puede ceder solo si es participante de una guardia interna.
+  const participa =
+    guardia.tipo === "INTERNA" &&
+    guardia.participantes.some((p) => p.usuarioId === usuarioId);
 
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-900">
@@ -197,6 +220,23 @@ function TarjetaGuardia({
       <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{quienes}</p>
       {guardia.notas && (
         <p className="mt-1 text-xs text-zinc-500">{guardia.notas}</p>
+      )}
+
+      {guardia.intercambios.length > 0 && (
+        <ul className="mt-1 text-xs text-zinc-400">
+          {guardia.intercambios.map((i) => (
+            <li key={i.id}>
+              Intercambio: {i.deNombre} → {i.aNombre}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {participa && (
+        <CederGuardia
+          guardiaId={guardia.id}
+          opciones={usuarios.filter((u) => u.id !== usuarioId)}
+        />
       )}
     </div>
   );

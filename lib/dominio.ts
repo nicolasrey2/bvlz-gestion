@@ -4,6 +4,7 @@ import type {
   Prioridad,
   EstadoTarea,
   TipoGuardia,
+  TipoFichada,
 } from "@/generated/prisma/client";
 
 /// Etiquetas legibles de los roles funcionales (para UI).
@@ -82,3 +83,10 @@ export const NOMBRE_TIPO_GUARDIA: Record<TipoGuardia, string> = {
 export function horarioGuardia(tipo: TipoGuardia): string {
   return tipo === "INTERNA" ? "22:00 a 08:00" : "07:00 a 07:00 (24 hs)";
 }
+
+// --- Fichado ----------------------------------------------------------------
+
+export const NOMBRE_TIPO_FICHADA: Record<TipoFichada, string> = {
+  ENTRADA: "Entrada",
+  SALIDA: "Salida",
+};

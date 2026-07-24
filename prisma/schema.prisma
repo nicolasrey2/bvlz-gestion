@@ -90,6 +90,7 @@ model Usuario {
   adjuntosSubidos TareaAdjunto[]
   comentarios     TareaComentario[]
   guardias        GuardiaParticipante[]
+  fichadas        Fichada[]
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -241,6 +242,8 @@ model Guardia {
 
   destacamento  Destacamento          @relation(fields: [destacamentoId], references: [id])
   participantes GuardiaParticipante[]
+  intercambios  IntercambioGuardia[]
+  fichadas      Fichada[]
 
   @@index([destacamentoId, fecha])
   @@map("guardia")
@@ -258,4 +261,47 @@ model GuardiaParticipante {
   @@unique([guardiaId, usuarioId])
   @@index([usuarioId])
   @@map("guardia_participante")
+}
+
+/// Intercambio/cobertura de una guardia entre pares (PRD §4.4). Sin aprobación;
+/// queda registrado. Se guardan los nombres como snapshot para el historial.
+model IntercambioGuardia {
+  id          String   @id @default(cuid())
+  guardiaId   String
+  deUsuarioId String
+  aUsuarioId  String
+  deNombre    String
+  aNombre     String
+  createdAt   DateTime @default(now())
+
+  guardia Guardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@index([guardiaId])
+  @@map("intercambio_guardia")
+}
+
+// ---------------------------------------------------------------------------
+// Fichado (PRD §4.5)
+// ---------------------------------------------------------------------------
+
+enum TipoFichada {
+  ENTRADA
+  SALIDA
+}
+
+model Fichada {
+  id             String      @id @default(cuid())
+  usuarioId      String
+  guardiaId      String? // guardia asociada (si le tocaba)
+  destacamentoId String
+  tipo           TipoFichada
+  momento        DateTime    @default(now())
+  noProgramada   Boolean     @default(false) // fichó una guardia que no le tocaba
+
+  usuario Usuario  @relation(fields: [usuarioId], references: [id])
+  guardia Guardia? @relation(fields: [guardiaId], references: [id])
+
+  @@index([destacamentoId, momento])
+  @@index([usuarioId])
+  @@map("fichada")
 }

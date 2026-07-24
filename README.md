@@ -51,6 +51,10 @@ docs/           PRD, documento técnico y parte oficial de ejemplo
    pnpm dev
    ```
 
+> ⚠️ **Tras cambiar el esquema o correr `pnpm db:migrate`, reiniciá `pnpm dev`.**
+> El cliente Prisma se cachea en memoria (singleton) y el hot-reload reutiliza la
+> instancia vieja, que no conoce los modelos nuevos.
+
 ## Scripts
 
 | Script | Qué hace |
