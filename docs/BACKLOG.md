@@ -34,16 +34,19 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
       guardias se guardan como medianoche UTC (date-only consistente).
 - [ ] Fichado: no valida duplicados ni coherencia (se puede fichar "entrada"
       dos veces seguidas). Definir reglas mínimas. **(Media)**
+- [ ] Cosmético: `fmtFechaHora` (día+mes sin año) no rellena con cero en algunas
+      versiones de ICU (muestra `23/7` en vez de `23/07`). Forzar padding si
+      molesta. **(Baja)**
 
 ---
 
 ## 2. Funcionalidad incompleta (por módulo)
 
 ### Partes de intervención
-- [ ] **v2: secciones condicionales** del formulario oficial según tipo de
+- [x] **v2: secciones condicionales** del formulario oficial según tipo de
       siniestro (vehículos, inmueble, análisis de incendio, víctimas, víctimas
-      fatales, rescate de animal, ferroviario, concurrentes). El modelo ya tiene
-      el campo `detalle` (JSON) reservado. **(Alta — es el diferencial del módulo)**
+      fatales, rescate de animal, ferroviario) → Resuelto en `lib/partesDetalle.ts`
+      + formulario/detalle/PDF. Falta aún la sección "concurrentes". **(parcial)**
 - [ ] Wizard por pasos en móvil (hoy es un formulario largo). **(Media)**
 - [ ] Logo del cuartel embebido en el PDF y layout más fiel al oficial. **(Media)**
 - [ ] Adjuntar fotos al parte. **(Media)**
@@ -122,11 +125,12 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 
 ## 6. Calidad / testing
 
-- [ ] **No hay tests.** Priorizar tests unitarios de `lib/permisos.ts` (la matriz
-      de permisos es lógica pura y crítica). **(Alta)**
+- [x] ~~No hay tests~~ → `lib/permisos.test.ts` + `lib/fechas.test.ts` (60 tests,
+      Vitest). Cubren la matriz de permisos y el formateo/rangos de fechas.
 - [ ] Tests de las Server Actions clave (transiciones de tareas, cierre de parte,
       ceder guardia, fichado). **(Media)**
-- [ ] CI (GitHub Actions): `tsc --noEmit` + `pnpm build` + tests en cada PR. **(Media)**
+- [x] ~~CI~~ → `.github/workflows/ci.yml`: `tsc --noEmit` + `pnpm test` en cada
+      push/PR a main. (Sumar `pnpm build` al CI queda pendiente. **Media**)
 
 ---
 
