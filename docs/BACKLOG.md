@@ -4,6 +4,24 @@ Estado: MVP (Fases 0–3) implementado y deployado en Vercel. Este documento
 recoge lo pendiente, mejoras, pulido y deuda técnica. Prioridad: **Alta** (hacer
 pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 
+> **Batch multi-agente completado** (orquestado, revisado e integrado; 84 tests
+> verdes + build + smoke de rutas OK):
+> - Tareas: editar / eliminar / reasignar responsables / resaltar vencidas.
+> - Guardias: editar guardia + confirmación al eliminar.
+> - Novedades: editar/eliminar propia + paginación + eventos automáticos (alta de
+>   guardia, cierre de parte).
+> - Personal: editar contacto, mensaje de email duplicado, reseteo de contraseña
+>   (por link de activación).
+> - Fichado: evita doble fichada consecutiva (con feedback).
+> - UX: toggle de tema global en todas las pantallas; confirmación en borrados.
+> - Calidad: tests de `partesDetalle` y `activacion`; `pnpm build` sumado al CI.
+>
+> **Pendiente = ops (tu mano) + futuro:** Paso 6 Supabase, DB de prod separada,
+> región/latencia, RLS y rate-limiting (dashboard/infra); PWA, notificaciones,
+> fichado por PIN/QR, cuarteleros como usuarios; y menores: wizard/fotos/logo del
+> parte, sección "concurrentes", calendario en grilla, unificar getUser/getAuthUser,
+> loading states, padding cosmético de hora.
+
 ---
 
 ## 0. Deploy / operación (pendientes concretos)
