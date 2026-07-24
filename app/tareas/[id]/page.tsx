@@ -6,6 +6,7 @@ import {
   esConduccion,
   alcanceVisibilidad,
   puedeAprobarTareaEnArea,
+  puedeCrearTareaEnArea,
 } from "@/lib/permisos";
 import {
   NOMBRE_ESTADO,
@@ -17,9 +18,12 @@ import {
   aprobarTarea,
   rechazarTarea,
   comentar,
+  eliminarTarea,
 } from "@/server/tareas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { FormEvidencia } from "@/components/FormEvidencia";
+import { ReasignarTarea } from "@/components/ReasignarTarea";
+import { BotonConfirmar } from "@/components/BotonConfirmar";
 import { fmtFecha, fmtFechaDia, fmtFechaHora } from "@/lib/fechas";
 
 export default async function DetalleTareaPage({
@@ -57,6 +61,21 @@ export default async function DetalleTareaPage({
   const puedeAprobar = puedeAprobarTareaEnArea(ctx, tarea.areaId);
   const puedeEnviar = esAsignado || esConduccion(ctx) || puedeAprobar;
 
+  // Editar/eliminar/reasignar: quien puede crear/asignar en el área de la
+  // tarea (o conducción) — PRD §3.5/§4.3. Eliminar además lo puede el creador.
+  const puedeGestionar = puedeCrearTareaEnArea(ctx, tarea.areaId);
+  const puedeEditar = puedeGestionar && tarea.estado !== "COMPLETA";
+  const puedeEliminar = puedeGestionar || tarea.creadorId === ctx.usuarioId;
+  const puedeReasignar = puedeGestionar && tarea.estado !== "COMPLETA";
+
+  const usuariosDestacamento = puedeReasignar
+    ? await prisma.usuario.findMany({
+        where: { destacamentoId: ctx.destacamentoId, activo: true },
+        orderBy: [{ apellido: "asc" }],
+        select: { id: true, nombre: true, apellido: true },
+      })
+    : [];
+
   // URLs firmadas (bucket privado) para mostrar la evidencia.
   const admin = createSupabaseAdminClient();
   const fotos = await Promise.all(
@@ -84,6 +103,30 @@ export default async function DetalleTareaPage({
             {NOMBRE_ESTADO[tarea.estado]}
           </span>
         </div>
+
+        {(puedeEditar || puedeEliminar) && (
+          <div className="mt-2 flex gap-3">
+            {puedeEditar && (
+              <Link
+                href={`/tareas/${tarea.id}/editar`}
+                className="text-xs font-medium text-zinc-600 underline dark:text-zinc-300"
+              >
+                Editar
+              </Link>
+            )}
+            {puedeEliminar && (
+              <form action={eliminarTarea}>
+                <input type="hidden" name="tareaId" value={tarea.id} />
+                <BotonConfirmar
+                  mensaje="¿Eliminar esta tarea?"
+                  className="text-xs font-medium text-red-700 underline"
+                >
+                  Eliminar
+                </BotonConfirmar>
+              </form>
+            )}
+          </div>
+        )}
       </header>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
@@ -120,6 +163,20 @@ export default async function DetalleTareaPage({
           </p>
         )}
       </section>
+
+      {/* Reasignar responsables */}
+      {puedeReasignar && (
+        <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+            Reasignar responsables
+          </h2>
+          <ReasignarTarea
+            tareaId={tarea.id}
+            usuarios={usuariosDestacamento}
+            asignadosIds={tarea.asignados.map((a) => a.usuarioId)}
+          />
+        </section>
+      )}
 
       {/* Transiciones de estado */}
       <section className="flex flex-col gap-2">

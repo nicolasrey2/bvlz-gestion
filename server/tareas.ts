@@ -27,6 +27,17 @@ const esquema = z.object({
   asignados: z.array(z.string()),
 });
 
+// Igual que `esquema`, pero sin `asignados`: los responsables se cambian
+// aparte, con `reasignarTarea` (así cada acción tiene un solo propósito).
+const esquemaEditar = z.object({
+  tareaId: z.string().min(1),
+  titulo: z.string().trim().min(1, "Ingresá un título."),
+  descripcion: z.string().trim().optional(),
+  prioridad: z.string(),
+  areaId: z.string().optional(),
+  fechaLimite: z.string().optional(),
+});
+
 /// Alta de tarea. Conducción a cualquier área/general; encargado solo en su área.
 export async function crearTarea(
   _prev: EstadoForm,
@@ -94,6 +105,118 @@ async function cargarTarea(id: string, destacamentoId: string) {
     where: { id, destacamentoId },
     include: { asignados: true },
   });
+}
+
+/// Edición de tarea (título, descripción, prioridad, fecha límite, área).
+/// Mismo alcance que crear/asignar en el área: conducción en cualquiera,
+/// encargado solo en la suya (PRD §3.5/§4.3). Una tarea completa no se edita.
+export async function editarTarea(
+  _prev: EstadoForm,
+  formData: FormData,
+): Promise<EstadoForm> {
+  const ctx = await getContextoAuth();
+  if (!ctx) return { error: "Sesión no válida." };
+
+  const parsed = esquemaEditar.safeParse({
+    tareaId: formData.get("tareaId"),
+    titulo: formData.get("titulo"),
+    descripcion: formData.get("descripcion") || undefined,
+    prioridad: formData.get("prioridad"),
+    areaId: formData.get("areaId") || undefined,
+    fechaLimite: formData.get("fechaLimite") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const d = parsed.data;
+
+  const tarea = await cargarTarea(d.tareaId, ctx.destacamentoId);
+  if (!tarea) return { error: "La tarea no existe." };
+  if (tarea.estado === "COMPLETA") {
+    return { error: "Una tarea completa no se puede editar." };
+  }
+  if (!puedeCrearTareaEnArea(ctx, tarea.areaId)) {
+    return { error: "No tenés permisos para editar esta tarea." };
+  }
+
+  if (!PRIORIDADES.has(d.prioridad)) return { error: "Prioridad inválida." };
+
+  // Validar el área destino (null = general) y el permiso de mover ahí.
+  const areaId = d.areaId ?? null;
+  if (areaId) {
+    const area = await prisma.area.findFirst({
+      where: { id: areaId, destacamentoId: ctx.destacamentoId },
+    });
+    if (!area) return { error: "El área seleccionada no es válida." };
+  }
+  if (!puedeCrearTareaEnArea(ctx, areaId)) {
+    return { error: "No podés mover la tarea a esa área." };
+  }
+
+  await prisma.tarea.update({
+    where: { id: tarea.id },
+    data: {
+      titulo: d.titulo,
+      descripcion: d.descripcion,
+      prioridad: d.prioridad as Prioridad,
+      areaId,
+      fechaLimite: d.fechaLimite ? new Date(d.fechaLimite) : null,
+    },
+  });
+
+  revalidatePath(`/tareas/${tarea.id}`);
+  revalidatePath("/tareas");
+  redirect(`/tareas/${tarea.id}`);
+}
+
+/// Elimina una tarea (cascade en el schema borra asignados/adjuntos/comentarios).
+/// Permiso: conducción, encargado del área de la tarea, o quien la creó.
+export async function eliminarTarea(formData: FormData) {
+  const ctx = await getContextoAuth();
+  if (!ctx) redirect("/login");
+  const tareaId = String(formData.get("tareaId") ?? "");
+
+  const tarea = await cargarTarea(tareaId, ctx.destacamentoId);
+  if (!tarea) return;
+
+  const puedeEliminar =
+    puedeCrearTareaEnArea(ctx, tarea.areaId) || tarea.creadorId === ctx.usuarioId;
+  if (!puedeEliminar) return;
+
+  await prisma.tarea.delete({ where: { id: tarea.id } });
+
+  revalidatePath("/tareas");
+  redirect("/tareas");
+}
+
+/// Reemplaza el conjunto de responsables de una tarea. Mismo alcance que
+/// crear/asignar en el área (incluye reasignar lo que se recibió — §3.5/§4.3).
+export async function reasignarTarea(formData: FormData) {
+  const ctx = await getContextoAuth();
+  if (!ctx) redirect("/login");
+  const tareaId = String(formData.get("tareaId") ?? "");
+
+  const tarea = await cargarTarea(tareaId, ctx.destacamentoId);
+  if (!tarea) return;
+  if (!puedeCrearTareaEnArea(ctx, tarea.areaId)) return;
+
+  const usuarioIds = formData.getAll("asignados").map(String);
+
+  // Solo pueden quedar asignados usuarios del mismo destacamento.
+  const usuarios = await prisma.usuario.findMany({
+    where: { id: { in: usuarioIds }, destacamentoId: ctx.destacamentoId },
+    select: { id: true },
+  });
+
+  await prisma.$transaction([
+    prisma.tareaAsignado.deleteMany({ where: { tareaId: tarea.id } }),
+    prisma.tareaAsignado.createMany({
+      data: usuarios.map((u) => ({ tareaId: tarea.id, usuarioId: u.id })),
+    }),
+  ]);
+
+  revalidatePath(`/tareas/${tarea.id}`);
+  revalidatePath("/tareas");
 }
 
 /// Pendiente → En revisión. La marca un asignado, la conducción o el encargado
