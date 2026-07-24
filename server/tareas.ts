@@ -11,6 +11,7 @@ import {
   puedeCrearTareaEnArea,
   puedeAprobarTareaEnArea,
 } from "@/lib/permisos";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Prioridad } from "@/generated/prisma/client";
 
 export type EstadoForm = { error: string } | null;
@@ -140,6 +141,43 @@ export async function aprobarTarea(formData: FormData) {
   });
   revalidatePath(`/tareas/${tarea.id}`);
   revalidatePath("/tareas");
+}
+
+/// Sube fotos de evidencia a una tarea (bucket privado "tareas"). Pueden hacerlo
+/// los asignados, la conducción o el encargado del área (PRD §4.3).
+export async function subirEvidencia(formData: FormData) {
+  const ctx = await getContextoAuth();
+  if (!ctx) redirect("/login");
+  const tareaId = String(formData.get("tareaId") ?? "");
+
+  const tarea = await cargarTarea(tareaId, ctx.destacamentoId);
+  if (!tarea || tarea.estado === "COMPLETA") return;
+
+  const esAsignado = tarea.asignados.some((a) => a.usuarioId === ctx.usuarioId);
+  if (!esAsignado && !esConduccion(ctx) && !puedeAprobarTareaEnArea(ctx, tarea.areaId)) {
+    return;
+  }
+
+  const archivos = formData
+    .getAll("fotos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (archivos.length === 0) return;
+
+  const admin = createSupabaseAdminClient();
+  for (const [i, file] of archivos.entries()) {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${tarea.id}/${Date.now()}-${i}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { error } = await admin.storage
+      .from("tareas")
+      .upload(path, buffer, { contentType: file.type });
+    if (error) continue;
+    await prisma.tareaAdjunto.create({
+      data: { tareaId: tarea.id, path, subidoPorId: ctx.usuarioId },
+    });
+  }
+
+  revalidatePath(`/tareas/${tarea.id}`);
 }
 
 /// En revisión → Pendiente (rechazo). Solo quien puede aprobar el área.

@@ -17,6 +17,8 @@ import {
   aprobarTarea,
   rechazarTarea,
 } from "@/server/tareas";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { FormEvidencia } from "@/components/FormEvidencia";
 
 function fecha(d: Date) {
   return d.toLocaleDateString("es-AR", {
@@ -42,6 +44,7 @@ export default async function DetalleTareaPage({
       creador: true,
       aprobador: true,
       asignados: { include: { usuario: true } },
+      adjuntos: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!tarea) redirect("/tareas");
@@ -58,6 +61,17 @@ export default async function DetalleTareaPage({
 
   const puedeAprobar = puedeAprobarTareaEnArea(ctx, tarea.areaId);
   const puedeEnviar = esAsignado || esConduccion(ctx) || puedeAprobar;
+
+  // URLs firmadas (bucket privado) para mostrar la evidencia.
+  const admin = createSupabaseAdminClient();
+  const fotos = await Promise.all(
+    tarea.adjuntos.map(async (ad) => {
+      const { data } = await admin.storage
+        .from("tareas")
+        .createSignedUrl(ad.path, 3600);
+      return { id: ad.id, url: data?.signedUrl ?? null };
+    }),
+  );
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 p-6">
@@ -144,6 +158,41 @@ export default async function DetalleTareaPage({
           <p className="text-center text-sm text-zinc-500">
             En revisión — esperando el visto bueno del encargado.
           </p>
+        )}
+      </section>
+
+      {/* Evidencia fotográfica */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">Evidencia</h2>
+        {fotos.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2">
+            {fotos.map(
+              (f) =>
+                f.url && (
+                  <a
+                    key={f.id}
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={f.url}
+                      alt="Evidencia de la tarea"
+                      className="aspect-square w-full rounded-lg object-cover"
+                    />
+                  </a>
+                ),
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400 italic">Sin fotos todavía.</p>
+        )}
+
+        {tarea.estado !== "COMPLETA" && puedeEnviar && (
+          <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+            <FormEvidencia tareaId={tarea.id} />
+          </div>
         )}
       </section>
     </main>
