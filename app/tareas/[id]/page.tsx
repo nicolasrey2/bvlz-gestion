@@ -16,6 +16,7 @@ import {
   enviarARevision,
   aprobarTarea,
   rechazarTarea,
+  comentar,
 } from "@/server/tareas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { FormEvidencia } from "@/components/FormEvidencia";
@@ -25,6 +26,15 @@ function fecha(d: Date) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+}
+
+function fechaHora(d: Date) {
+  return d.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -45,6 +55,7 @@ export default async function DetalleTareaPage({
       aprobador: true,
       asignados: { include: { usuario: true } },
       adjuntos: { orderBy: { createdAt: "asc" } },
+      comentarios: { include: { autor: true }, orderBy: { createdAt: "asc" } },
     },
   });
   if (!tarea) redirect("/tareas");
@@ -194,6 +205,50 @@ export default async function DetalleTareaPage({
             <FormEvidencia tareaId={tarea.id} />
           </div>
         )}
+      </section>
+
+      {/* Seguimiento: comentarios (avances, bloqueos, etc.) */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">Seguimiento</h2>
+
+        {tarea.comentarios.length === 0 ? (
+          <p className="text-sm text-zinc-400 italic">Sin comentarios.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {tarea.comentarios.map((c) => (
+              <li key={c.id} className="text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                    {c.autor.apellido}, {c.autor.nombre}
+                  </span>
+                  <span className="text-xs text-zinc-400">
+                    {fechaHora(c.createdAt)}
+                  </span>
+                </div>
+                <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
+                  {c.texto}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form
+          action={comentar}
+          className="mt-3 flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800"
+        >
+          <input type="hidden" name="tareaId" value={tarea.id} />
+          <textarea
+            name="texto"
+            rows={2}
+            required
+            placeholder="Escribí un comentario… (ej. no lo pude hacer porque…)"
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-red-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          />
+          <button className="self-end rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white">
+            Comentar
+          </button>
+        </form>
       </section>
     </main>
   );

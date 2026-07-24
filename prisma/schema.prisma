@@ -87,6 +87,7 @@ model Usuario {
   tareasAprobadas Tarea[]         @relation("TareaAprobador")
   tareasAsignadas TareaAsignado[]
   adjuntosSubidos TareaAdjunto[]
+  comentarios     TareaComentario[]
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -167,6 +168,7 @@ model Tarea {
   aprobador    Usuario?        @relation("TareaAprobador", fields: [aprobadorId], references: [id])
   asignados    TareaAsignado[]
   adjuntos     TareaAdjunto[]
+  comentarios  TareaComentario[]
 
   @@index([destacamentoId])
   @@index([areaId])
@@ -200,4 +202,19 @@ model TareaAdjunto {
 
   @@index([tareaId])
   @@map("tarea_adjunto")
+}
+
+/// Comentarios de seguimiento de una tarea (bitácora: avances, bloqueos, etc.).
+model TareaComentario {
+  id        String   @id @default(cuid())
+  tareaId   String
+  autorId   String
+  texto     String
+  createdAt DateTime @default(now())
+
+  tarea Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  autor Usuario @relation(fields: [autorId], references: [id])
+
+  @@index([tareaId])
+  @@map("tarea_comentario")
 }

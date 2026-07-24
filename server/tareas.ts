@@ -197,3 +197,29 @@ export async function rechazarTarea(formData: FormData) {
   revalidatePath(`/tareas/${tarea.id}`);
   revalidatePath("/tareas");
 }
+
+/// Agrega un comentario de seguimiento. Puede comentar quien tiene acceso a la
+/// tarea (asignado, creador, conducción o encargado del área).
+export async function comentar(formData: FormData) {
+  const ctx = await getContextoAuth();
+  if (!ctx) redirect("/login");
+  const tareaId = String(formData.get("tareaId") ?? "");
+  const texto = String(formData.get("texto") ?? "").trim();
+  if (!texto) return;
+
+  const tarea = await cargarTarea(tareaId, ctx.destacamentoId);
+  if (!tarea) return;
+
+  const esAsignado = tarea.asignados.some((a) => a.usuarioId === ctx.usuarioId);
+  const tieneAcceso =
+    esAsignado ||
+    tarea.creadorId === ctx.usuarioId ||
+    esConduccion(ctx) ||
+    puedeAprobarTareaEnArea(ctx, tarea.areaId);
+  if (!tieneAcceso) return;
+
+  await prisma.tareaComentario.create({
+    data: { tareaId: tarea.id, autorId: ctx.usuarioId, texto: texto.slice(0, 2000) },
+  });
+  revalidatePath(`/tareas/${tarea.id}`);
+}
