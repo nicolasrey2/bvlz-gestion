@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { puedeVerFichados } from "@/lib/permisos";
 import { NOMBRE_TIPO_FICHADA } from "@/lib/dominio";
-import { fichar } from "@/server/fichado";
+import { FormFichado } from "./FormFichado";
 import { fmtHora, hoyArgentina, rangoDiaAR, rangoDiaUTC } from "@/lib/fechas";
 
 export default async function FichadoPage() {
@@ -64,20 +64,7 @@ export default async function FichadoPage() {
       </header>
 
       {/* Botones de fichado */}
-      <div className="grid grid-cols-2 gap-3">
-        <form action={fichar}>
-          <input type="hidden" name="tipo" value="ENTRADA" />
-          <button className="w-full rounded-2xl bg-green-700 px-4 py-6 text-lg font-semibold text-white">
-            Fichar entrada
-          </button>
-        </form>
-        <form action={fichar}>
-          <input type="hidden" name="tipo" value="SALIDA" />
-          <button className="w-full rounded-2xl bg-zinc-700 px-4 py-6 text-lg font-semibold text-white">
-            Fichar salida
-          </button>
-        </form>
-      </div>
+      <FormFichado />
 
       {/* Mis fichadas de hoy */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
