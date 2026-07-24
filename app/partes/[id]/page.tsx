@@ -6,6 +6,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { esConduccion } from "@/lib/permisos";
 import { NOMBRE_TIPO_SINIESTRO, NOMBRE_ESTADO_PARTE } from "@/lib/dominio";
 import { cerrarParte } from "@/server/partes";
+import { BotonAccion } from "@/components/BotonAccion";
 import { fmtFechaDia, fmtFechaHora } from "@/lib/fechas";
 import {
   leerDetalle,
@@ -166,9 +167,13 @@ export default async function DetallePartePage({
         {puedeCerrar && (
           <form action={cerrarParte}>
             <input type="hidden" name="parteId" value={parte.id} />
-            <button className="w-full rounded-lg bg-red-700 px-4 py-2.5 text-base font-semibold text-white">
+            <BotonAccion
+              className="w-full rounded-lg bg-red-700 px-4 py-2.5 text-base font-semibold text-white disabled:opacity-60"
+              confirmar="¿Cerrar el parte? No se podrá editar."
+              pendiente="Cerrando…"
+            >
               Cerrar parte — no se podrá editar
-            </button>
+            </BotonAccion>
           </form>
         )}
       </section>
@@ -343,6 +348,22 @@ const RENDER_SECCION: Record<SeccionParte, (detalle: DetalleParte) => ReactNode>
       {d.ferroviario?.kmVia && <Dato titulo="Km de vía" valor={d.ferroviario.kmVia} />}
       {d.ferroviario?.nroTren && <Dato titulo="N° tren" valor={d.ferroviario.nroTren} />}
       {d.ferroviario?.nroCabina && <Dato titulo="N° cabina" valor={d.ferroviario.nroCabina} />}
+    </dl>
+  ),
+
+  concurrentes: (d) => (
+    <dl className="flex flex-col gap-2 text-sm">
+      {d.concurrentes?.movilPolicial && (
+        <Dato titulo="Móvil policial" valor={d.concurrentes.movilPolicial} />
+      )}
+      {d.concurrentes?.ambulancia && (
+        <Dato titulo="Ambulancia" valor={d.concurrentes.ambulancia} />
+      )}
+      {d.concurrentes?.defensaCivil && (
+        <Dato titulo="Defensa Civil" valor={d.concurrentes.defensaCivil} />
+      )}
+      {d.concurrentes?.transito && <Dato titulo="Tránsito" valor={d.concurrentes.transito} />}
+      {d.concurrentes?.otros && <Dato titulo="Otros" valor={d.concurrentes.otros} />}
     </dl>
   ),
 };

@@ -352,6 +352,51 @@ export function FormNuevoParte() {
         </fieldset>
       )}
 
+      {/* Concurrentes — aplica a todos los tipos de siniestro */}
+      <fieldset className="flex flex-col gap-3">
+        <legend className={legend}>Concurrentes</legend>
+        <label className={label}>
+          Móvil policial
+          <input
+            name="conc_movilPolicial"
+            placeholder="N° / a cargo de / observaciones"
+            className={input}
+          />
+        </label>
+        <label className={label}>
+          Ambulancia
+          <input
+            name="conc_ambulancia"
+            placeholder="N° / a cargo de / observaciones"
+            className={input}
+          />
+        </label>
+        <label className={label}>
+          Defensa Civil
+          <input
+            name="conc_defensaCivil"
+            placeholder="N° / a cargo de / observaciones"
+            className={input}
+          />
+        </label>
+        <label className={label}>
+          Tránsito
+          <input
+            name="conc_transito"
+            placeholder="N° / a cargo de / observaciones"
+            className={input}
+          />
+        </label>
+        <label className={label}>
+          Otros
+          <input
+            name="conc_otros"
+            placeholder="N° / a cargo de / observaciones"
+            className={input}
+          />
+        </label>
+      </fieldset>
+
       {/* Personal */}
       <fieldset className="flex flex-col gap-3">
         <legend className={legend}>Personal</legend>

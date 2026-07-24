@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import {
   leerDetalle,
   seccionesPresentes,
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottom: "2pt solid #b91c1c",
   },
+  logo: { width: 60, height: 60, marginBottom: 6, alignSelf: "center" },
   institucion: { fontSize: 11, fontWeight: 700, textAlign: "center" },
   destacamento: { fontSize: 9, textAlign: "center", color: "#52525b", marginTop: 2 },
   titulo: { fontSize: 15, fontWeight: 700, textAlign: "center", marginTop: 8 },
@@ -232,12 +233,30 @@ const RENDER_DETALLE_PDF: Record<SeccionParte, (detalle: DetalleParte) => ReactN
       <Campo etiqueta="N° cabina" valor={d.ferroviario?.nroCabina ?? null} />
     </View>
   ),
+
+  concurrentes: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Móvil policial" valor={d.concurrentes?.movilPolicial ?? null} ancho />
+      <Campo etiqueta="Ambulancia" valor={d.concurrentes?.ambulancia ?? null} ancho />
+      <Campo etiqueta="Defensa Civil" valor={d.concurrentes?.defensaCivil ?? null} ancho />
+      <Campo etiqueta="Tránsito" valor={d.concurrentes?.transito ?? null} ancho />
+      <Campo etiqueta="Otros" valor={d.concurrentes?.otros ?? null} ancho />
+    </View>
+  ),
 };
 
 /// Documento PDF del parte de intervención — replica el formulario oficial
 /// de la Asociación de Bomberos Voluntarios de Lomas de Zamora, en un
 /// formato legible y prolijo (no pixel-perfect).
-export function ParteDocumento({ parte }: { parte: ParteParaPdf }) {
+/// `logoDataUri`: logo institucional como data URI (ver route.tsx, que lo lee
+/// de `public/`) — opcional para no romper el PDF si el archivo falta.
+export function ParteDocumento({
+  parte,
+  logoDataUri,
+}: {
+  parte: ParteParaPdf;
+  logoDataUri?: string;
+}) {
   const recursos = [
     parte.dotaciones !== null ? `${parte.dotaciones} dotación/es` : null,
     parte.bomberos !== null ? `${parte.bomberos} bombero/s` : null,
@@ -255,6 +274,7 @@ export function ParteDocumento({ parte }: { parte: ParteParaPdf }) {
       <Page size="A4" style={styles.page}>
         {/* Encabezado institucional */}
         <View style={styles.header}>
+          {logoDataUri && <Image style={styles.logo} src={logoDataUri} />}
           <Text style={styles.institucion}>
             Asociación de Bomberos Voluntarios de Lomas de Zamora
           </Text>

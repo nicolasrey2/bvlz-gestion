@@ -1,8 +1,25 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { NOMBRE_TIPO_SINIESTRO } from "@/lib/dominio";
 import { ParteDocumento, type ParteParaPdf } from "@/pdf/parte";
+
+/// Logo institucional embebido como data URI para el encabezado del PDF. Se
+/// lee una sola vez al cargar el módulo (archivo estático de `public/`); si
+/// falta o falla la lectura, el PDF se genera igual sin logo.
+function leerLogoDataUri(): string | undefined {
+  try {
+    const ruta = path.join(process.cwd(), "public", "logo-bomberos.jpeg");
+    const buffer = readFileSync(ruta);
+    return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
+const logoDataUri = leerLogoDataUri();
 
 /// Exporta el parte de intervención a PDF. Requiere sesión y que el parte
 /// pertenezca al destacamento del usuario (misma regla que la página de
@@ -54,7 +71,9 @@ export async function GET(
     detalle: parte.detalle,
   };
 
-  const buffer = await renderToBuffer(<ParteDocumento parte={datos} />);
+  const buffer = await renderToBuffer(
+    <ParteDocumento parte={datos} logoDataUri={logoDataUri} />,
+  );
 
   // Response no acepta Buffer<ArrayBufferLike> directo en los tipos de DOM;
   // se copia a un Uint8Array respaldado por un ArrayBuffer "puro".

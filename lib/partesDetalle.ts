@@ -12,7 +12,8 @@ export type SeccionParte =
   | "victimas"
   | "victimasFatales"
   | "animal"
-  | "ferroviario";
+  | "ferroviario"
+  | "concurrentes";
 
 export type Vehiculo = {
   propietario?: string;
@@ -86,6 +87,17 @@ export type Ferroviario = {
   nroCabina?: string;
 };
 
+/// Organismos que concurrieron junto a Bomberos (formulario oficial, sección
+/// CONCURRENTES). Aplica a todos los tipos de siniestro — cada campo es
+/// texto libre (ej. "N° / a cargo / observaciones").
+export type Concurrentes = {
+  movilPolicial?: string;
+  ambulancia?: string;
+  defensaCivil?: string;
+  transito?: string;
+  otros?: string;
+};
+
 /// Todas las secciones son opcionales: un parte puede quedar incompleto y
 /// completarse en ediciones posteriores. Se persiste tal cual en
 /// `ParteIntervencion.detalle` (Json).
@@ -99,6 +111,7 @@ export type DetalleParte = {
   victimasFatales?: VictimaFatal[];
   animal?: Animal;
   ferroviario?: Ferroviario;
+  concurrentes?: Concurrentes;
 };
 
 /// Etiquetas legibles de cada sección (UI y PDF).
@@ -112,19 +125,27 @@ export const NOMBRE_SECCION: Record<SeccionParte, string> = {
   victimasFatales: "Víctimas fatales",
   animal: "Rescate de animal",
   ferroviario: "Siniestro ferroviario",
+  concurrentes: "Concurrentes",
 };
 
 /// Qué secciones habilita cada tipo de siniestro (formulario oficial). Mapa
 /// de configuración en vez de un switch: agregar un tipo nuevo no obliga a
 /// tocar la lógica de parseo/render, solo esta tabla.
 export const SECCIONES_POR_SINIESTRO: Record<TipoSiniestro, SeccionParte[]> = {
-  ACCIDENTE_VIAL: ["climaticas", "vehiculos", "victimas", "victimasFatales"],
-  INCENDIO: ["incendio", "inmueble", "datosComplementarios", "victimas", "victimasFatales"],
-  FUGA_GAS: ["inmueble", "datosComplementarios", "victimas"],
-  RESCATE: ["victimas", "victimasFatales"],
-  RESCATE_ANIMAL: ["animal"],
-  FERROVIARIO: ["ferroviario", "victimas", "victimasFatales"],
-  OTRO: [],
+  ACCIDENTE_VIAL: ["climaticas", "vehiculos", "victimas", "victimasFatales", "concurrentes"],
+  INCENDIO: [
+    "incendio",
+    "inmueble",
+    "datosComplementarios",
+    "victimas",
+    "victimasFatales",
+    "concurrentes",
+  ],
+  FUGA_GAS: ["inmueble", "datosComplementarios", "victimas", "concurrentes"],
+  RESCATE: ["victimas", "victimasFatales", "concurrentes"],
+  RESCATE_ANIMAL: ["animal", "concurrentes"],
+  FERROVIARIO: ["ferroviario", "victimas", "victimasFatales", "concurrentes"],
+  OTRO: ["concurrentes"],
 };
 
 const TODAS_LAS_SECCIONES = Object.keys(NOMBRE_SECCION) as SeccionParte[];
@@ -264,6 +285,16 @@ function leerFerroviario(formData: FormData): Ferroviario | undefined {
   });
 }
 
+function leerConcurrentes(formData: FormData): Concurrentes | undefined {
+  return objetoConDatos<Concurrentes>({
+    movilPolicial: campoTexto(formData, "conc_movilPolicial"),
+    ambulancia: campoTexto(formData, "conc_ambulancia"),
+    defensaCivil: campoTexto(formData, "conc_defensaCivil"),
+    transito: campoTexto(formData, "conc_transito"),
+    otros: campoTexto(formData, "conc_otros"),
+  });
+}
+
 /// Un parseador por sección: mapa de estrategias en vez de un switch que
 /// crece con cada tipo de siniestro nuevo (ver tabla de patrones, clean-code).
 const PARSEADOR_SECCION: Record<SeccionParte, (formData: FormData) => Partial<DetalleParte>> = {
@@ -276,6 +307,7 @@ const PARSEADOR_SECCION: Record<SeccionParte, (formData: FormData) => Partial<De
   victimasFatales: (fd) => ({ victimasFatales: leerVictimasFatales(fd) }),
   animal: (fd) => ({ animal: leerAnimal(fd) }),
   ferroviario: (fd) => ({ ferroviario: leerFerroviario(fd) }),
+  concurrentes: (fd) => ({ concurrentes: leerConcurrentes(fd) }),
 };
 
 /// Parsea el `FormData` a `DetalleParte`, tomando SOLO las secciones que
@@ -311,6 +343,7 @@ const TIENE_DATOS: Record<SeccionParte, (d: DetalleParte) => boolean> = {
   victimasFatales: (d) => Boolean(d.victimasFatales && d.victimasFatales.length > 0),
   animal: (d) => Boolean(d.animal),
   ferroviario: (d) => Boolean(d.ferroviario),
+  concurrentes: (d) => Boolean(d.concurrentes),
 };
 
 export function seccionesPresentes(detalle: DetalleParte): SeccionParte[] {
