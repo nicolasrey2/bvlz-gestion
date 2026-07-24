@@ -1,0 +1,124 @@
+// Esquema Prisma — BVLZ Gestión de Destacamento
+// Fase 0: entidades fundacionales. Los modelos operativos (Tarea, Guardia,
+// Fichada, Novedad, ParteIntervencion) se agregan en fases posteriores.
+// Ver docs/PRD.md y docs/TECH.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// Jerarquía institucional (rango) de la persona. Atributo ~fijo del usuario,
+/// independiente del rol funcional. Orden de menor a mayor.
+enum Rango {
+  ASPIRANTE
+  BOMBERO
+  CABO
+  CABO_PRIMERO
+  SARGENTO
+  SARGENTO_PRIMERO
+  SUBOFICIAL_PRINCIPAL
+  SUBOFICIAL_MAYOR
+  OFICIAL_AYUDANTE
+  OFICIAL_INSPECTOR
+  OFICIAL_PRINCIPAL
+  SUBCOMANDANTE
+  COMANDANTE
+  SEGUNDO_JEFE_CUERPO
+  JEFE_CUERPO
+}
+
+/// Rol funcional dentro del destacamento. Determina permisos. Rota en el tiempo.
+enum RolTipo {
+  ENCARGADO_INTERNO
+  SUB_ENCARGADO
+  ENCARGADO_AREA
+  MIEMBRO
+}
+
+// ---------------------------------------------------------------------------
+// Modelos
+// ---------------------------------------------------------------------------
+
+/// Entidad raíz. El MVP opera con un solo destacamento (Llavallol), pero el
+/// modelo está preparado para multi-destacamento desde el inicio.
+model Destacamento {
+  id        String   @id @default(cuid())
+  nombre    String
+  cuartel   String? // ej. "Llavallol"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usuarios Usuario[]
+  areas    Area[]
+
+  @@map("destacamento")
+}
+
+/// Persona del destacamento. Los cuarteleros externos NO son usuarios en el MVP.
+model Usuario {
+  id             String   @id @default(cuid())
+  /// UUID del usuario en Supabase Auth (fuente de verdad de la sesión).
+  authId         String?  @unique
+  email          String   @unique
+  nombre         String
+  apellido       String
+  rango          Rango    @default(BOMBERO)
+  legajo         String? // para partes de intervención
+  dni            String?
+  telefono       String?
+  activo         Boolean  @default(true)
+  destacamentoId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
+  asignaciones AsignacionRol[]
+
+  @@index([destacamentoId])
+  @@map("usuario")
+}
+
+/// Área del destacamento (Automotores, Materiales, Oficina, Edilicio, Suministros).
+/// Modelada como tabla (no enum) para soportar variaciones entre destacamentos.
+model Area {
+  id             String   @id @default(cuid())
+  nombre         String
+  destacamentoId String
+  createdAt      DateTime @default(now())
+
+  destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
+  asignaciones AsignacionRol[]
+
+  @@unique([destacamentoId, nombre])
+  @@index([destacamentoId])
+  @@map("area")
+}
+
+/// Asignación de un rol a un usuario, con vigencia. Permite rotaciones y
+/// mantiene el historial: vigenteHasta = null significa asignación actual.
+/// Para ENCARGADO_AREA y MIEMBRO, areaId indica el área correspondiente.
+model AsignacionRol {
+  id           String    @id @default(cuid())
+  usuarioId    String
+  rol          RolTipo
+  areaId       String? // requerido para roles de área; null para roles de dto
+  vigenteDesde DateTime  @default(now())
+  vigenteHasta DateTime? // null = vigente
+  createdAt    DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  area    Area?   @relation(fields: [areaId], references: [id])
+
+  @@index([usuarioId])
+  @@index([areaId])
+  @@map("asignacion_rol")
+}
