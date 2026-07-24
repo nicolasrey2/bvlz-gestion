@@ -1,14 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAuthUser, getUsuarioActual } from "@/lib/auth";
+import { getAuthUser, getUsuarioActual, getContextoAuth } from "@/lib/auth";
+import { puedeGestionarUsuarios } from "@/lib/permisos";
+import { NOMBRE_ROL } from "@/lib/dominio";
 import { logout } from "./login/actions";
-
-// Nombres legibles de los roles funcionales para mostrar en pantalla.
-const NOMBRE_ROL: Record<string, string> = {
-  ENCARGADO_INTERNO: "Encargado Interno",
-  SUB_ENCARGADO: "Sub-encargado",
-  ENCARGADO_AREA: "Encargado de Área",
-  MIEMBRO: "Miembro",
-};
 
 export default async function Home() {
   // El proxy ya redirige a no autenticados, pero reforzamos en el servidor.
@@ -34,6 +29,9 @@ export default async function Home() {
     );
   }
 
+  const ctx = await getContextoAuth();
+  const esConduccion = ctx ? puedeGestionarUsuarios(ctx) : false;
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
       <header className="flex items-start justify-between">
@@ -51,6 +49,13 @@ export default async function Home() {
           </button>
         </form>
       </header>
+
+      <nav className="grid grid-cols-2 gap-3">
+        <Tarjeta href="/destacamento" titulo="Destacamento" desc="Organigrama y áreas" />
+        {esConduccion && (
+          <Tarjeta href="/personal" titulo="Personal" desc="Altas y roles" />
+        )}
+      </nav>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
         <h2 className="mb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
@@ -71,8 +76,30 @@ export default async function Home() {
       </section>
 
       <p className="text-center text-xs text-zinc-400">
-        Fase 1 en construcción · próximamente: personal, tareas y guardias.
+        Fase 1 · próximamente: tareas, guardias y partes.
       </p>
     </main>
+  );
+}
+
+function Tarjeta({
+  href,
+  titulo,
+  desc,
+}: {
+  href: string;
+  titulo: string;
+  desc: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl bg-white p-4 shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+    >
+      <span className="block font-semibold text-zinc-900 dark:text-zinc-100">
+        {titulo}
+      </span>
+      <span className="text-xs text-zinc-500">{desc}</span>
+    </Link>
   );
 }
