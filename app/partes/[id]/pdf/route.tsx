@@ -51,6 +51,7 @@ export async function GET(
       ? `${parte.cerradoPor.apellido}, ${parte.cerradoPor.nombre}`
       : null,
     cerradoEn: parte.cerradoEn,
+    detalle: parte.detalle,
   };
 
   const buffer = await renderToBuffer(<ParteDocumento parte={datos} />);

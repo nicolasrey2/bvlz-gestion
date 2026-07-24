@@ -7,7 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { esConduccion, puedeCrearParte } from "@/lib/permisos";
 import { TIPOS_SINIESTRO } from "@/lib/dominio";
-import type { TipoSiniestro } from "@/generated/prisma/client";
+import { parsearDetalleFormData } from "@/lib/partesDetalle";
+import type { TipoSiniestro, Prisma } from "@/generated/prisma/client";
 
 export type EstadoForm = { error: string } | null;
 
@@ -127,9 +128,16 @@ export async function crearParte(
     return { error: "Tipo de siniestro inválido." };
   }
 
+  // El detalle condicional (vehículos, incendio, víctimas, etc.) se parsea
+  // según las secciones que habilita el tipo de siniestro elegido — así no
+  // se puede colar, por ejemplo, un dato de "rescate de animal" en un parte
+  // de incendio.
+  const detalle = parsearDetalleFormData(formData, d.tipoSiniestro as TipoSiniestro);
+
   const parte = await prisma.parteIntervencion.create({
     data: {
       ...datosParaGuardar(d),
+      detalle: detalle as Prisma.InputJsonValue,
       estado: "ABIERTO",
       destacamentoId: ctx.destacamentoId,
       creadorId: ctx.usuarioId,
@@ -156,9 +164,11 @@ export async function editarParte(formData: FormData) {
   const d = parsed.data;
   if (!TIPOS_VALIDOS.has(d.tipoSiniestro as TipoSiniestro)) return;
 
+  const detalle = parsearDetalleFormData(formData, d.tipoSiniestro as TipoSiniestro);
+
   await prisma.parteIntervencion.update({
     where: { id: parte.id },
-    data: datosParaGuardar(d),
+    data: { ...datosParaGuardar(d), detalle: detalle as Prisma.InputJsonValue },
   });
 
   revalidatePath(`/partes/${parte.id}`);

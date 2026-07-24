@@ -1,7 +1,17 @@
+import type { ReactNode } from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import {
+  leerDetalle,
+  seccionesPresentes,
+  NOMBRE_SECCION,
+  type DetalleParte,
+  type SeccionParte,
+} from "@/lib/partesDetalle";
 
 /// Datos ya "planos" que necesita el documento — el route handler los arma a
 /// partir de la fila de Prisma (traduce enums a etiquetas, Json a array, etc).
+/// `detalle` viaja tal cual vino de la DB (Json sin tipar) — se parsea con
+/// `leerDetalle` acá adentro, no se confía en su forma de antemano.
 export type ParteParaPdf = {
   id: string;
   estado: "ABIERTO" | "CERRADO";
@@ -20,6 +30,7 @@ export type ParteParaPdf = {
   unidades: string | null;
   descripcion: string | null;
   personal: string[];
+  detalle?: unknown;
   datosTomadosPor: string | null;
   oficialActuante: string | null;
   jefeCuerpo: string | null;
@@ -57,6 +68,10 @@ const styles = StyleSheet.create({
   filaCampos: { flexDirection: "row", flexWrap: "wrap", marginBottom: 2 },
   campo: { width: "50%", flexDirection: "row", marginBottom: 4, paddingRight: 6 },
   campoAncho: { width: "100%", flexDirection: "row", marginBottom: 4 },
+  // Encabezado de un bloque repetido dentro de una sección de detalle
+  // (Vehículo 1, Víctima 2, etc.).
+  subtitulo: { fontSize: 9, fontWeight: 700, color: "#3f3f46", marginBottom: 3 },
+  bloqueDetalle: { marginBottom: 6 },
   etiqueta: { width: 95, fontWeight: 700, color: "#3f3f46" },
   valor: { flex: 1 },
   parrafo: { lineHeight: 1.4 },
@@ -96,6 +111,129 @@ function Campo({ etiqueta, valor, ancho }: { etiqueta: string; valor: string | n
   );
 }
 
+/// "Sí"/"No" para los booleanos del detalle (nicho hidrante, extintor);
+/// `null` si no se cargó (Campo lo omite).
+function boolTexto(v: boolean | undefined): string | null {
+  return v === undefined ? null : v ? "Sí" : "No";
+}
+
+/// Renderer por sección de detalle (mapa de estrategias, igual criterio que
+/// en `lib/partesDetalle.ts` y en la página de detalle): agregar un tipo de
+/// siniestro nuevo no obliga a tocar esta lógica, solo la tabla de
+/// `SECCIONES_POR_SINIESTRO`.
+const RENDER_DETALLE_PDF: Record<SeccionParte, (detalle: DetalleParte) => ReactNode> = {
+  climaticas: (d) => <Campo etiqueta="Cond. climáticas" valor={d.condicionesClimaticas ?? null} ancho />,
+
+  vehiculos: (d) => (
+    <>
+      {d.vehiculos?.map((v, i) => (
+        <View key={i} style={styles.bloqueDetalle}>
+          <Text style={styles.subtitulo}>{`Vehículo ${i + 1}`}</Text>
+          <View style={styles.filaCampos}>
+            <Campo etiqueta="Propietario/a" valor={v.propietario ?? null} />
+            <Campo etiqueta="Conductor/a" valor={v.conductor ?? null} />
+            <Campo etiqueta="Edad" valor={v.edad ?? null} />
+            <Campo etiqueta="Domicilio" valor={v.domicilio ?? null} />
+            <Campo etiqueta="Dominio" valor={v.dominio ?? null} />
+            <Campo etiqueta="Marca" valor={v.marca ?? null} />
+            <Campo etiqueta="Modelo" valor={v.modelo ?? null} />
+            <Campo etiqueta="Año" valor={v.anio ?? null} />
+            <Campo etiqueta="Aseguradora" valor={v.aseguradora ?? null} />
+            <Campo etiqueta="Póliza" valor={v.poliza ?? null} />
+          </View>
+        </View>
+      ))}
+    </>
+  ),
+
+  incendio: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Origen" valor={d.incendio?.origen ?? null} />
+      <Campo etiqueta="Causa" valor={d.incendio?.causa ?? null} />
+      <Campo etiqueta="Propagación" valor={d.incendio?.propagacion ?? null} />
+      <Campo etiqueta="Evolución" valor={d.incendio?.evolucion ?? null} ancho />
+    </View>
+  ),
+
+  inmueble: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Paredes de" valor={d.inmueble?.paredes ?? null} />
+      <Campo etiqueta="Techos de" valor={d.inmueble?.techos ?? null} />
+      <Campo etiqueta="Inst. eléctrica" valor={d.inmueble?.instElectrica ?? null} />
+      <Campo etiqueta="Inst. gas" valor={d.inmueble?.instGas ?? null} />
+      <Campo etiqueta="Cant. ambientes" valor={d.inmueble?.ambientes ?? null} />
+      <Campo etiqueta="Cant. pisos" valor={d.inmueble?.pisos ?? null} />
+      <Campo etiqueta="¿Nicho hidrante?" valor={boolTexto(d.inmueble?.nichoHidrante)} />
+      <Campo etiqueta="¿Extintor?" valor={boolTexto(d.inmueble?.extintor)} />
+    </View>
+  ),
+
+  datosComplementarios: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Propietario/a" valor={d.datosComplementarios?.propietario ?? null} />
+      <Campo etiqueta="DNI" valor={d.datosComplementarios?.dni ?? null} />
+      <Campo etiqueta="Domicilio" valor={d.datosComplementarios?.domicilio ?? null} ancho />
+      <Campo etiqueta="Aseguradora" valor={d.datosComplementarios?.aseguradora ?? null} />
+      <Campo etiqueta="Póliza" valor={d.datosComplementarios?.poliza ?? null} />
+      <Campo etiqueta="Razón social" valor={d.datosComplementarios?.razonSocial ?? null} />
+      <Campo etiqueta="Ramo" valor={d.datosComplementarios?.ramo ?? null} />
+    </View>
+  ),
+
+  victimas: (d) => (
+    <>
+      {d.victimas?.map((v, i) => (
+        <View key={i} style={styles.bloqueDetalle}>
+          <Text style={styles.subtitulo}>{`Víctima ${i + 1}`}</Text>
+          <View style={styles.filaCampos}>
+            <Campo etiqueta="Nombre y apell." valor={v.nombre ?? null} />
+            <Campo etiqueta="DNI" valor={v.dni ?? null} />
+            <Campo etiqueta="Sexo" valor={v.sexo ?? null} />
+            <Campo etiqueta="Edad" valor={v.edad ?? null} />
+            <Campo etiqueta="Veh. N°" valor={v.vehiculoNro ?? null} />
+            <Campo etiqueta="Traslado a" valor={v.trasladoA ?? null} />
+          </View>
+        </View>
+      ))}
+    </>
+  ),
+
+  victimasFatales: (d) => (
+    <>
+      {d.victimasFatales?.map((v, i) => (
+        <View key={i} style={styles.bloqueDetalle}>
+          <Text style={styles.subtitulo}>{`Víctima fatal ${i + 1}`}</Text>
+          <View style={styles.filaCampos}>
+            <Campo etiqueta="Nombre y apell." valor={v.nombre ?? null} />
+            <Campo etiqueta="DNI" valor={v.dni ?? null} />
+            <Campo etiqueta="Sexo" valor={v.sexo ?? null} />
+          </View>
+        </View>
+      ))}
+    </>
+  ),
+
+  animal: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Propietario/a" valor={d.animal?.propietario ?? null} />
+      <Campo etiqueta="DNI" valor={d.animal?.dni ?? null} />
+      <Campo etiqueta="Domicilio" valor={d.animal?.domicilio ?? null} />
+      <Campo etiqueta="Especie y raza" valor={d.animal?.especieRaza ?? null} />
+    </View>
+  ),
+
+  ferroviario: (d) => (
+    <View style={styles.filaCampos}>
+      <Campo etiqueta="Guarda" valor={d.ferroviario?.guarda ?? null} />
+      <Campo etiqueta="Maquinista" valor={d.ferroviario?.maquinista ?? null} />
+      <Campo etiqueta="Recorrido" valor={d.ferroviario?.recorrido ?? null} ancho />
+      <Campo etiqueta="Km de vía" valor={d.ferroviario?.kmVia ?? null} />
+      <Campo etiqueta="N° tren" valor={d.ferroviario?.nroTren ?? null} />
+      <Campo etiqueta="N° cabina" valor={d.ferroviario?.nroCabina ?? null} />
+    </View>
+  ),
+};
+
 /// Documento PDF del parte de intervención — replica el formulario oficial
 /// de la Asociación de Bomberos Voluntarios de Lomas de Zamora, en un
 /// formato legible y prolijo (no pixel-perfect).
@@ -106,6 +244,11 @@ export function ParteDocumento({ parte }: { parte: ParteParaPdf }) {
   ]
     .filter(Boolean)
     .join(" · ");
+
+  // Detalle condicional (vehículos, incendio, víctimas, etc.) — Json sin
+  // tipar, se lee con el mismo type guard que usa la página de detalle.
+  const detalle = leerDetalle(parte.detalle);
+  const seccionesDetalle = seccionesPresentes(detalle);
 
   return (
     <Document>
@@ -190,6 +333,15 @@ export function ParteDocumento({ parte }: { parte: ParteParaPdf }) {
             <Text style={styles.sinDatos}>Sin personal cargado.</Text>
           )}
         </View>
+
+        {/* Secciones condicionales del detalle (vehículos, incendio, víctimas,
+            etc.) — solo las que tienen datos cargados. */}
+        {seccionesDetalle.map((seccion) => (
+          <View key={seccion} style={styles.seccion}>
+            <Text style={styles.seccionTitulo}>{NOMBRE_SECCION[seccion]}</Text>
+            {RENDER_DETALLE_PDF[seccion](detalle)}
+          </View>
+        ))}
 
         {/* Firmas */}
         <View style={styles.firmasFila}>
