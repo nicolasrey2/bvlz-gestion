@@ -5,29 +5,13 @@ import { getContextoAuth } from "@/lib/auth";
 import { esConduccion } from "@/lib/permisos";
 import { NOMBRE_TIPO_SINIESTRO, NOMBRE_ESTADO_PARTE } from "@/lib/dominio";
 import { cerrarParte } from "@/server/partes";
+import { fmtFechaDia, fmtFechaHora } from "@/lib/fechas";
 
 /// Clases de color del badge de estado (ABIERTO ámbar, CERRADO verde).
 const COLOR_ESTADO_PARTE = {
   ABIERTO: "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100",
   CERRADO: "bg-green-200 text-green-900 dark:bg-green-900 dark:text-green-100",
 } as const;
-
-function fecha(d: Date) {
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function fechaHora(d: Date) {
-  return d.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default async function DetallePartePage({
   params,
@@ -74,7 +58,7 @@ export default async function DetallePartePage({
         <dl className="flex flex-col gap-2 text-sm">
           {parte.servicioNro && <Dato titulo="N° de servicio" valor={parte.servicioNro} />}
           {parte.cuartel && <Dato titulo="Cuartel" valor={parte.cuartel} />}
-          {parte.fecha && <Dato titulo="Fecha" valor={fecha(parte.fecha)} />}
+          {parte.fecha && <Dato titulo="Fecha" valor={fmtFechaDia(parte.fecha)} />}
           {parte.objeto && <Dato titulo="Objeto" valor={parte.objeto} />}
           {parte.direccion && <Dato titulo="Dirección" valor={parte.direccion} />}
           {parte.localidad && <Dato titulo="Localidad" valor={parte.localidad} />}
@@ -109,7 +93,7 @@ export default async function DetallePartePage({
           {parte.estado === "CERRADO" && parte.cerradoPor && parte.cerradoEn && (
             <Dato
               titulo="Cerrado por"
-              valor={`${parte.cerradoPor.apellido} · ${fechaHora(parte.cerradoEn)}`}
+              valor={`${parte.cerradoPor.apellido} · ${fmtFechaHora(parte.cerradoEn)}`}
             />
           )}
         </dl>

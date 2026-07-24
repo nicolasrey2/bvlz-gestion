@@ -71,8 +71,9 @@ export async function crearGuardia(
     data: {
       destacamentoId: ctx.destacamentoId,
       tipo,
-      // La fecha viene como YYYY-MM-DD; se guarda como medianoche local.
-      fecha: new Date(`${d.fecha}T00:00:00`),
+      // Fecha "día": se guarda como medianoche UTC (consistente sin importar
+      // la zona del servidor). Ver lib/fechas.ts.
+      fecha: new Date(`${d.fecha}T00:00:00Z`),
       cuarteleroNombre: tipo === "CUARTELERO" ? d.cuarteleroNombre : null,
       notas: d.notas,
       participantes:

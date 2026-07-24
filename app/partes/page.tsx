@@ -4,20 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { puedeCrearParte } from "@/lib/permisos";
 import { NOMBRE_TIPO_SINIESTRO, NOMBRE_ESTADO_PARTE } from "@/lib/dominio";
+import { fmtFechaDia } from "@/lib/fechas";
 
 /// Clases de color del badge de estado (ABIERTO ámbar, CERRADO verde).
 const COLOR_ESTADO_PARTE = {
   ABIERTO: "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100",
   CERRADO: "bg-green-200 text-green-900 dark:bg-green-900 dark:text-green-100",
 } as const;
-
-function fecha(d: Date) {
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 export default async function PartesPage() {
   const ctx = await getContextoAuth();
@@ -73,7 +66,7 @@ export default async function PartesPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {p.fecha ? fecha(p.fecha) : "sin fecha"}
+                  {p.fecha ? fmtFechaDia(p.fecha) : "sin fecha"}
                   {p.objeto && ` · ${p.objeto}`}
                   {` · ${p.creador.apellido}, ${p.creador.nombre}`}
                 </p>

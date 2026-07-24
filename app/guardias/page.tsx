@@ -7,6 +7,7 @@ import { puedeGestionarGuardias } from "@/lib/permisos";
 import { NOMBRE_TIPO_GUARDIA, horarioGuardia } from "@/lib/dominio";
 import { eliminarGuardia } from "@/server/guardias";
 import { CederGuardia } from "@/components/CederGuardia";
+import { fmtDiaSemana, hoyArgentina, rangoMesUTC } from "@/lib/fechas";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -32,17 +33,16 @@ export default async function GuardiasPage({
   if (!ctx) redirect("/login");
 
   const { mes } = await searchParams;
-  const hoy = new Date();
-  let anio = hoy.getFullYear();
-  let mes1a12 = hoy.getMonth() + 1;
+  const hoy = hoyArgentina();
+  let anio = hoy.y;
+  let mes1a12 = hoy.m;
   if (mes && /^\d{4}-\d{2}$/.test(mes)) {
     const [a, m] = mes.split("-").map(Number);
     anio = a;
     mes1a12 = m;
   }
 
-  const inicio = new Date(anio, mes1a12 - 1, 1);
-  const fin = new Date(anio, mes1a12, 1);
+  const { inicio, fin } = rangoMesUTC(anio, mes1a12);
 
   const guardias = await prisma.guardia.findMany({
     where: {
@@ -70,7 +70,7 @@ export default async function GuardiasPage({
   // Agrupar por día del mes.
   const porDia = new Map<number, GuardiaConParticipantes[]>();
   for (const g of guardias) {
-    const dia = g.fecha.getDate();
+    const dia = g.fecha.getUTCDate();
     porDia.set(dia, [...(porDia.get(dia) ?? []), g]);
   }
   const dias = [...porDia.keys()].sort((a, b) => a - b);
@@ -129,7 +129,7 @@ export default async function GuardiasPage({
           <ul className="flex flex-col gap-1 text-sm text-zinc-800 dark:text-zinc-200">
             {misGuardias.map((g) => (
               <li key={g.id}>
-                {g.fecha.getDate()} de {MESES[mes1a12 - 1]} ·{" "}
+                {g.fecha.getUTCDate()} de {MESES[mes1a12 - 1]} ·{" "}
                 {NOMBRE_TIPO_GUARDIA[g.tipo]} ({horarioGuardia(g.tipo)})
               </li>
             ))}
@@ -145,10 +145,8 @@ export default async function GuardiasPage({
       ) : (
         <div className="flex flex-col gap-3">
           {dias.map((dia) => {
-            const fecha = new Date(anio, mes1a12 - 1, dia);
-            const diaSemana = fecha.toLocaleDateString("es-AR", {
-              weekday: "short",
-            });
+            const fecha = new Date(Date.UTC(anio, mes1a12 - 1, dia));
+            const diaSemana = fmtDiaSemana(fecha);
             return (
               <section key={dia} className="flex flex-col gap-2">
                 <h3 className="text-sm font-semibold text-zinc-500">

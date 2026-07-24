@@ -10,18 +10,10 @@ import {
   finalizarRol,
 } from "@/server/personal";
 import { FormAsignarRol } from "@/components/FormAsignarRol";
+import { fmtFecha } from "@/lib/fechas";
 
 const input =
   "rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-red-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100";
-
-// Formato de fecha local (es-AR) para el historial.
-function fecha(d: Date) {
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 export default async function DetalleUsuarioPage({
   params,
@@ -130,8 +122,8 @@ export default async function DetalleUsuarioPage({
           <ul className="flex flex-col gap-1 text-xs text-zinc-500">
             {historicas.map((a) => (
               <li key={a.id}>
-                {etiquetaRol(a)} — {fecha(a.vigenteDesde)} a{" "}
-                {a.vigenteHasta ? fecha(a.vigenteHasta) : "—"}
+                {etiquetaRol(a)} — {fmtFecha(a.vigenteDesde)} a{" "}
+                {a.vigenteHasta ? fmtFecha(a.vigenteHasta) : "—"}
               </li>
             ))}
           </ul>

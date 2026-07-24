@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { NOMBRE_TIPO_NOVEDAD, TIPOS_NOVEDAD } from "@/lib/dominio";
+import { fmtFechaHora } from "@/lib/fechas";
 import { FormNuevaNovedad } from "@/components/FormNuevaNovedad";
 
 // Cuánto atrás mostramos en la bitácora, y cuántas entradas como máximo.
@@ -112,12 +113,7 @@ export default async function NovedadesPage() {
                   {e.tipoTexto}
                 </span>
                 <time className="shrink-0 text-xs text-zinc-400">
-                  {e.fecha.toLocaleString("es-AR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {fmtFechaHora(e.fecha)}
                 </time>
               </div>
               <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">

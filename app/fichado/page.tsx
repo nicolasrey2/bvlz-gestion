@@ -5,33 +5,23 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeVerFichados } from "@/lib/permisos";
 import { NOMBRE_TIPO_FICHADA } from "@/lib/dominio";
 import { fichar } from "@/server/fichado";
-
-function hora(d: Date) {
-  return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-}
+import { fmtHora, hoyArgentina, rangoDiaAR, rangoDiaUTC } from "@/lib/fechas";
 
 export default async function FichadoPage() {
   const ctx = await getContextoAuth();
   if (!ctx) redirect("/login");
 
-  const ahora = new Date();
-  const inicioDia = new Date(
-    ahora.getFullYear(),
-    ahora.getMonth(),
-    ahora.getDate(),
-  );
-  const finDia = new Date(
-    ahora.getFullYear(),
-    ahora.getMonth(),
-    ahora.getDate() + 1,
-  );
+  const { y, m, d } = hoyArgentina();
+  // Guardias: fechas "día" (medianoche UTC). Fichadas: instantes (día AR).
+  const diaUTC = rangoDiaUTC(y, m, d);
+  const diaAR = rangoDiaAR(y, m, d);
 
   // ¿Le toca guardia interna hoy?
   const guardiaHoy = await prisma.guardia.findFirst({
     where: {
       destacamentoId: ctx.destacamentoId,
       tipo: "INTERNA",
-      fecha: { gte: inicioDia, lt: finDia },
+      fecha: { gte: diaUTC.inicio, lt: diaUTC.fin },
       participantes: { some: { usuarioId: ctx.usuarioId } },
     },
   });
@@ -39,7 +29,7 @@ export default async function FichadoPage() {
   const misFichadasHoy = await prisma.fichada.findMany({
     where: {
       usuarioId: ctx.usuarioId,
-      momento: { gte: inicioDia, lt: finDia },
+      momento: { gte: diaAR.inicio, lt: diaAR.fin },
     },
     orderBy: { momento: "asc" },
   });
@@ -50,7 +40,7 @@ export default async function FichadoPage() {
     ? await prisma.fichada.findMany({
         where: {
           destacamentoId: ctx.destacamentoId,
-          momento: { gte: inicioDia, lt: finDia },
+          momento: { gte: diaAR.inicio, lt: diaAR.fin },
         },
         include: { usuario: true },
         orderBy: { momento: "desc" },
@@ -108,7 +98,7 @@ export default async function FichadoPage() {
                     </span>
                   )}
                 </span>
-                <span className="text-zinc-500">{hora(f.momento)}</span>
+                <span className="text-zinc-500">{fmtHora(f.momento)}</span>
               </li>
             ))}
           </ul>
@@ -137,7 +127,7 @@ export default async function FichadoPage() {
                       <span className="ml-1 text-xs text-amber-600">(NP)</span>
                     )}
                   </span>
-                  <span className="text-zinc-500">{hora(f.momento)}</span>
+                  <span className="text-zinc-500">{fmtHora(f.momento)}</span>
                 </li>
               ))}
             </ul>

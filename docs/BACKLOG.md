@@ -25,18 +25,13 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 
 ## 1. Bugs / correctitud
 
-- [ ] **Zona horaria (Alta).** Las fechas/horas se formatean con
-      `toLocale*("es-AR", …)` **sin** `timeZone`, así que en Vercel (servidor en
-      UTC) se muestran corridas ~3 h. Afecta: `app/fichado/page.tsx`,
-      `app/novedades/page.tsx`, `app/tareas/[id]/page.tsx`,
-      `app/partes/[id]/page.tsx`, `app/personal/[id]/page.tsx`,
-      `app/guardias/page.tsx`, `app/partes/page.tsx`.
-      → Fijar `timeZone: "America/Argentina/Buenos_Aires"` en todas (idealmente
-      un helper único en `lib/dominio.ts`, ej. `fmtFecha`/`fmtFechaHora`).
-- [ ] **Límites de día en UTC (Alta).** El "hoy" del fichado y el agrupado por
-      día/mes de guardias se calculan con `new Date()`/`getDate()` en el
-      servidor (UTC). Una fichada a las 22:00 (AR) cae "mañana" en UTC.
-      → Calcular los rangos de día/mes en horario de Argentina.
+- [x] **Zona horaria (Alta).** ~~Las fechas/horas se formateaban sin
+      `timeZone`~~ → Resuelto: helper único `lib/fechas.ts` (con
+      `America/Argentina/Buenos_Aires`, 24 h) usado en todas las páginas.
+- [x] **Límites de día en UTC (Alta).** ~~El "hoy" del fichado y el agrupado de
+      guardias se calculaban en UTC~~ → Resuelto: `hoyArgentina()` +
+      `rangoDiaAR` (instantes) / `rangoDiaUTC`/`rangoMesUTC` (fechas "día"); las
+      guardias se guardan como medianoche UTC (date-only consistente).
 - [ ] Fichado: no valida duplicados ni coherencia (se puede fichar "entrada"
       dos veces seguidas). Definir reglas mínimas. **(Media)**
 
@@ -100,8 +95,8 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 
 ## 4. Deuda técnica / arquitectura
 
-- [ ] **Helper único de formato de fecha/hora** en `lib/dominio.ts` (hoy cada
-      página redefine `fecha()`/`hora()`). Resuelve además el bug de TZ. **(Alta)**
+- [x] **Helper único de formato de fecha/hora** → `lib/fechas.ts` (reemplaza los
+      `fecha()`/`hora()` locales de cada página).
 - [ ] `app/page.tsx` hace 3 llamadas (`getAuthUser` + `getUsuarioActual` +
       `getContextoAuth`) que consultan el usuario más de una vez. Unificar. **(Media)**
 - [ ] `getUser()` de Supabase se llama en el `proxy` y otra vez en cada página:

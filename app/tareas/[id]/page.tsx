@@ -20,23 +20,7 @@ import {
 } from "@/server/tareas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { FormEvidencia } from "@/components/FormEvidencia";
-
-function fecha(d: Date) {
-  return d.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function fechaHora(d: Date) {
-  return d.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { fmtFecha, fmtFechaDia, fmtFechaHora } from "@/lib/fechas";
 
 export default async function DetalleTareaPage({
   params,
@@ -107,7 +91,7 @@ export default async function DetalleTareaPage({
           <Dato titulo="Área" valor={tarea.area ? tarea.area.nombre : "General"} />
           <Dato titulo="Prioridad" valor={NOMBRE_PRIORIDAD[tarea.prioridad]} />
           {tarea.fechaLimite && (
-            <Dato titulo="Fecha límite" valor={fecha(tarea.fechaLimite)} />
+            <Dato titulo="Fecha límite" valor={fmtFechaDia(tarea.fechaLimite)} />
           )}
           <Dato
             titulo="Responsables"
@@ -126,7 +110,7 @@ export default async function DetalleTareaPage({
           {tarea.estado === "COMPLETA" && tarea.aprobador && tarea.aprobadaEn && (
             <Dato
               titulo="Aprobada por"
-              valor={`${tarea.aprobador.apellido} · ${fecha(tarea.aprobadaEn)}`}
+              valor={`${tarea.aprobador.apellido} · ${fmtFecha(tarea.aprobadaEn)}`}
             />
           )}
         </dl>
@@ -222,7 +206,7 @@ export default async function DetalleTareaPage({
                     {c.autor.apellido}, {c.autor.nombre}
                   </span>
                   <span className="text-xs text-zinc-400">
-                    {fechaHora(c.createdAt)}
+                    {fmtFechaHora(c.createdAt)}
                   </span>
                 </div>
                 <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
