@@ -3,6 +3,7 @@ import type {
   RolTipo,
   Prioridad,
   EstadoTarea,
+  TipoGuardia,
 } from "@/generated/prisma/client";
 
 /// Etiquetas legibles de los roles funcionales (para UI).
@@ -69,3 +70,15 @@ export const COLOR_ESTADO: Record<EstadoTarea, string> = {
   EN_REVISION: "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100",
   COMPLETA: "bg-green-200 text-green-900 dark:bg-green-900 dark:text-green-100",
 };
+
+// --- Guardias ----------------------------------------------------------------
+
+export const NOMBRE_TIPO_GUARDIA: Record<TipoGuardia, string> = {
+  INTERNA: "Interna",
+  CUARTELERO: "Cuartelero",
+};
+
+/// Horario según el tipo de guardia (PRD §4.4).
+export function horarioGuardia(tipo: TipoGuardia): string {
+  return tipo === "INTERNA" ? "22:00 a 08:00" : "07:00 a 07:00 (24 hs)";
+}

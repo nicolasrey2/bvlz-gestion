@@ -60,6 +60,7 @@ model Destacamento {
   usuarios Usuario[]
   areas    Area[]
   tareas   Tarea[]
+  guardias Guardia[]
 
   @@map("destacamento")
 }
@@ -88,6 +89,7 @@ model Usuario {
   tareasAsignadas TareaAsignado[]
   adjuntosSubidos TareaAdjunto[]
   comentarios     TareaComentario[]
+  guardias        GuardiaParticipante[]
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -217,4 +219,43 @@ model TareaComentario {
 
   @@index([tareaId])
   @@map("tarea_comentario")
+}
+
+// ---------------------------------------------------------------------------
+// Guardias (PRD §4.4)
+// ---------------------------------------------------------------------------
+
+enum TipoGuardia {
+  INTERNA // del destacamento, 22:00 a 08:00, puede haber más de una persona
+  CUARTELERO // externo (depende de Lomas), 24 hs de 07:00 a 07:00; en el MVP solo nombre
+}
+
+model Guardia {
+  id               String      @id @default(cuid())
+  destacamentoId   String
+  tipo             TipoGuardia
+  fecha            DateTime // día de la guardia (la hora se deriva del tipo)
+  cuarteleroNombre String? // solo para CUARTELERO (externo, sin usuario en el MVP)
+  notas            String?
+  createdAt        DateTime    @default(now())
+
+  destacamento  Destacamento          @relation(fields: [destacamentoId], references: [id])
+  participantes GuardiaParticipante[]
+
+  @@index([destacamentoId, fecha])
+  @@map("guardia")
+}
+
+/// Participante de una guardia interna (puede haber varios).
+model GuardiaParticipante {
+  id        String @id @default(cuid())
+  guardiaId String
+  usuarioId String
+
+  guardia Guardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([guardiaId, usuarioId])
+  @@index([usuarioId])
+  @@map("guardia_participante")
 }
