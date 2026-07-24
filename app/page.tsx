@@ -1,65 +1,78 @@
-import Image from "next/image";
+import { redirect } from "next/navigation";
+import { getAuthUser, getUsuarioActual } from "@/lib/auth";
+import { logout } from "./login/actions";
 
-export default function Home() {
+// Nombres legibles de los roles funcionales para mostrar en pantalla.
+const NOMBRE_ROL: Record<string, string> = {
+  ENCARGADO_INTERNO: "Encargado Interno",
+  SUB_ENCARGADO: "Sub-encargado",
+  ENCARGADO_AREA: "Encargado de Área",
+  MIEMBRO: "Miembro",
+};
+
+export default async function Home() {
+  // El proxy ya redirige a no autenticados, pero reforzamos en el servidor.
+  const authUser = await getAuthUser();
+  if (!authUser) redirect("/login");
+
+  const usuario = await getUsuarioActual();
+
+  // Autenticado en Supabase pero sin Usuario vinculado: no puede operar.
+  if (!usuario) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="max-w-sm text-zinc-600 dark:text-zinc-400">
+          Tu cuenta todavía no está vinculada a un usuario del destacamento.
+          Contactá al encargado.
+        </p>
+        <form action={logout}>
+          <button className="text-sm font-medium text-red-700 underline">
+            Cerrar sesión
+          </button>
+        </form>
+      </main>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
+      <header className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-red-700 dark:text-red-500">
+            {usuario.destacamento.nombre}
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {usuario.nombre} {usuario.apellido}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <form action={logout}>
+          <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+            Salir
+          </button>
+        </form>
+      </header>
+
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          Tus roles
+        </h2>
+        {usuario.asignaciones.length === 0 ? (
+          <p className="text-sm text-zinc-500">Sin roles asignados.</p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {usuario.asignaciones.map((a) => (
+              <li key={a.id} className="text-sm text-zinc-800 dark:text-zinc-200">
+                {NOMBRE_ROL[a.rol] ?? a.rol}
+                {a.area ? ` · ${a.area.nombre}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <p className="text-center text-xs text-zinc-400">
+        Fase 1 en construcción · próximamente: personal, tareas y guardias.
+      </p>
+    </main>
   );
 }
