@@ -10,6 +10,7 @@ import {
   finalizarRol,
 } from "@/server/personal";
 import { FormAsignarRol } from "@/components/FormAsignarRol";
+import { RegenerarActivacion } from "@/components/RegenerarActivacion";
 import { fmtFecha } from "@/lib/fechas";
 
 const input =
@@ -60,6 +61,18 @@ export default async function DetalleUsuarioPage({
         </h1>
         <p className="text-sm text-zinc-500">{usuario.email}</p>
       </header>
+
+      {!usuario.cuentaActivada && (
+        <section className="rounded-2xl bg-amber-50 p-4 shadow-sm dark:bg-amber-950/30">
+          <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            Cuenta pendiente de activación
+          </h2>
+          <p className="mt-1 mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Todavía no definió su contraseña. Generá el link y compartíselo.
+          </p>
+          <RegenerarActivacion usuarioId={usuario.id} />
+        </section>
+      )}
 
       {/* Rango */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">

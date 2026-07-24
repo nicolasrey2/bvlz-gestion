@@ -84,6 +84,12 @@ model Usuario {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Activación de cuenta: al dar de alta no se fija contraseña; se genera un
+  // token (se guarda su hash) para que la persona defina su clave por un link.
+  cuentaActivada      Boolean   @default(true) // los usuarios existentes ya están activos
+  activacionTokenHash String?
+  activacionExpira    DateTime?
+
   destacamento    Destacamento    @relation(fields: [destacamentoId], references: [id])
   asignaciones    AsignacionRol[]
   tareasCreadas   Tarea[]         @relation("TareaCreador")

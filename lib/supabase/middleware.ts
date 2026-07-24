@@ -36,7 +36,10 @@ export async function updateSession(request: NextRequest) {
 
   // Rutas públicas: login y callbacks de auth.
   const path = request.nextUrl.pathname;
-  const esRutaPublica = path.startsWith("/login") || path.startsWith("/auth");
+  const esRutaPublica =
+    path.startsWith("/login") ||
+    path.startsWith("/auth") ||
+    path.startsWith("/activar");
 
   if (!user && !esRutaPublica) {
     const url = request.nextUrl.clone();

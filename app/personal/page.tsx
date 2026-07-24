@@ -49,11 +49,18 @@ export default async function PersonalPage() {
               <span className="font-medium text-zinc-900 dark:text-zinc-100">
                 {u.apellido}, {u.nombre}
               </span>
-              {!u.activo && (
-                <span className="rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                  inactivo
-                </span>
-              )}
+              <span className="flex shrink-0 gap-1">
+                {!u.cuentaActivada && (
+                  <span className="rounded bg-amber-200 px-2 py-0.5 text-xs text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                    pendiente
+                  </span>
+                )}
+                {!u.activo && (
+                  <span className="rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    inactivo
+                  </span>
+                )}
+              </span>
             </div>
             <p className="text-sm text-zinc-500">{nombreRango(u.rango)}</p>
             {u.asignaciones.length > 0 && (

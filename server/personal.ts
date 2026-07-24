@@ -8,9 +8,11 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { RANGOS, ROLES_DE_AREA, NOMBRE_ROL } from "@/lib/dominio";
+import { generarActivacion, passwordAleatoria } from "@/lib/activacion";
 import type { Rango, RolTipo } from "@/generated/prisma/client";
 
-export type EstadoForm = { error: string } | null;
+// En éxito devuelve el path del link de activación para que el encargado lo comparta.
+export type EstadoForm = { error: string } | { ok: true; path: string } | null;
 
 const RANGOS_VALIDOS = new Set(RANGOS.map((r) => r.value));
 const ROLES_VALIDOS = new Set(Object.keys(NOMBRE_ROL));
@@ -19,7 +21,6 @@ const esquema = z.object({
   nombre: z.string().trim().min(1, "Ingresá el nombre."),
   apellido: z.string().trim().min(1, "Ingresá el apellido."),
   email: z.string().trim().min(3, "Ingresá un email válido."),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres."),
   rango: z.string().min(1, "Elegí un rango."),
   rol: z.string().optional(),
   areaId: z.string().optional(),
@@ -44,7 +45,6 @@ export async function crearUsuario(
     nombre: formData.get("nombre"),
     apellido: formData.get("apellido"),
     email: formData.get("email"),
-    password: formData.get("password"),
     rango: formData.get("rango"),
     rol: formData.get("rol") || undefined,
     areaId: formData.get("areaId") || undefined,
@@ -78,7 +78,7 @@ export async function crearUsuario(
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: datos.email,
-    password: datos.password,
+    password: passwordAleatoria(),
     email_confirm: true,
   });
   if (error || !data.user) {
@@ -86,6 +86,8 @@ export async function crearUsuario(
   }
 
   // 5) Crear el Usuario del dominio (+ rol inicial). Si falla, revertir Auth.
+  // La cuenta queda SIN activar: la persona define su contraseña por el link.
+  const activacion = generarActivacion();
   try {
     await prisma.usuario.create({
       data: {
@@ -95,6 +97,9 @@ export async function crearUsuario(
         apellido: datos.apellido,
         rango: datos.rango as Rango,
         destacamentoId: ctx.destacamentoId,
+        cuentaActivada: false,
+        activacionTokenHash: activacion.hash,
+        activacionExpira: activacion.expira,
         ...(rol ? { asignaciones: { create: { rol, areaId } } } : {}),
       },
     });
@@ -106,7 +111,7 @@ export async function crearUsuario(
   }
 
   revalidatePath("/personal");
-  redirect("/personal");
+  return { ok: true, path: `/activar/${activacion.token}` };
 }
 
 /// Verifica sesión + permiso de gestión. Redirige si no corresponde.
