@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useActionState } from "react";
 import { login, type EstadoLogin } from "./actions";
+import { ToggleTema } from "@/components/ToggleTema";
 import logoCuartel from "@/public/logo-cuartel.png";
 
 export default function LoginPage() {
@@ -12,7 +13,10 @@ export default function LoginPage() {
   );
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-zinc-100 px-6 dark:bg-zinc-950">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-zinc-100 px-6 dark:bg-zinc-950">
+      <div className="absolute right-4 top-4">
+        <ToggleTema />
+      </div>
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
           {/* Caja blanca: el logo es verde/dorado y así se lee en ambos temas. */}
