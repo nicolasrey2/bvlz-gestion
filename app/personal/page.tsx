@@ -40,10 +40,11 @@ export default async function PersonalPage() {
 
       <ul className="flex flex-col gap-2">
         {usuarios.map((u) => (
-          <li
-            key={u.id}
-            className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-900"
-          >
+          <li key={u.id}>
+            <Link
+              href={`/personal/${u.id}`}
+              className="block rounded-xl bg-white p-3 shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            >
             <div className="flex items-center justify-between">
               <span className="font-medium text-zinc-900 dark:text-zinc-100">
                 {u.apellido}, {u.nombre}
@@ -66,6 +67,7 @@ export default async function PersonalPage() {
                   .join(" · ")}
               </p>
             )}
+            </Link>
           </li>
         ))}
       </ul>
