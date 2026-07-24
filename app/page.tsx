@@ -51,6 +51,7 @@ export default async function Home() {
       </header>
 
       <nav className="grid grid-cols-2 gap-3">
+        <Tarjeta href="/tareas" titulo="Tareas" desc="Crear y seguir" />
         <Tarjeta href="/destacamento" titulo="Destacamento" desc="Organigrama y áreas" />
         {esConduccion && (
           <Tarjeta href="/personal" titulo="Personal" desc="Altas y roles" />

@@ -1,4 +1,9 @@
-import type { Rango, RolTipo } from "@/generated/prisma/client";
+import type {
+  Rango,
+  RolTipo,
+  Prioridad,
+  EstadoTarea,
+} from "@/generated/prisma/client";
 
 /// Etiquetas legibles de los roles funcionales (para UI).
 export const NOMBRE_ROL: Record<RolTipo, string> = {
@@ -37,3 +42,30 @@ const RANGO_LABEL = new Map(RANGOS.map((r) => [r.value, r.label]));
 export function nombreRango(rango: Rango): string {
   return RANGO_LABEL.get(rango) ?? rango;
 }
+
+// --- Tareas ------------------------------------------------------------------
+
+export const PRIORIDADES: { value: Prioridad; label: string }[] = [
+  { value: "ALTA", label: "Alta" },
+  { value: "MEDIA", label: "Media" },
+  { value: "BAJA", label: "Baja" },
+];
+
+export const NOMBRE_PRIORIDAD: Record<Prioridad, string> = {
+  ALTA: "Alta",
+  MEDIA: "Media",
+  BAJA: "Baja",
+};
+
+export const NOMBRE_ESTADO: Record<EstadoTarea, string> = {
+  PENDIENTE: "Pendiente",
+  EN_REVISION: "En revisión",
+  COMPLETA: "Completa",
+};
+
+/// Clases de color por estado (para chips/badges en la UI).
+export const COLOR_ESTADO: Record<EstadoTarea, string> = {
+  PENDIENTE: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
+  EN_REVISION: "bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100",
+  COMPLETA: "bg-green-200 text-green-900 dark:bg-green-900 dark:text-green-100",
+};

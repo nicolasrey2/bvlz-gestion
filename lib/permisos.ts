@@ -17,21 +17,22 @@ export interface RolActivo {
 
 // --- Predicados de rol -------------------------------------------------------
 
-/// Roles de conducción del destacamento. El sub-encargado puede asumir como
-/// encargado si el titular se ausenta (ver PRD §3.2), por eso comparten permisos.
-function esConduccionDto(ctx: ContextoAuth): boolean {
+/// Conducción del destacamento. El sub-encargado puede asumir como encargado
+/// si el titular se ausenta (PRD §3.2), por eso comparten permisos.
+export function esConduccion(ctx: ContextoAuth): boolean {
   return ctx.roles.some(
     (r) => r.rol === "ENCARGADO_INTERNO" || r.rol === "SUB_ENCARGADO",
   );
 }
 
 /// true si el usuario es encargado del área indicada.
-function esEncargadoDeArea(ctx: ContextoAuth, areaId: string): boolean {
+function esEncargadoDeArea(ctx: ContextoAuth, areaId: string | null): boolean {
+  if (!areaId) return false;
   return ctx.roles.some((r) => r.rol === "ENCARGADO_AREA" && r.areaId === areaId);
 }
 
 /// IDs de las áreas donde el usuario es encargado.
-function areasQueEncarga(ctx: ContextoAuth): string[] {
+export function areasQueEncarga(ctx: ContextoAuth): string[] {
   return ctx.roles
     .filter((r) => r.rol === "ENCARGADO_AREA" && r.areaId)
     .map((r) => r.areaId as string);
@@ -46,7 +47,7 @@ export type Alcance =
   | { tipo: "AREAS"; areaIds: string[] };
 
 export function alcanceVisibilidad(ctx: ContextoAuth): Alcance {
-  if (esConduccionDto(ctx)) return { tipo: "DESTACAMENTO" };
+  if (esConduccion(ctx)) return { tipo: "DESTACAMENTO" };
   return { tipo: "AREAS", areaIds: areasQueEncarga(ctx) };
 }
 
@@ -54,34 +55,42 @@ export function alcanceVisibilidad(ctx: ContextoAuth): Alcance {
 
 /// Alta/baja de usuarios y cambios de rango/rol/área. Solo conducción.
 export function puedeGestionarUsuarios(ctx: ContextoAuth): boolean {
-  return esConduccionDto(ctx);
+  return esConduccion(ctx);
 }
 
 /// Armar/editar el cronograma mensual de guardias. Lo hace Oficina (conducción).
 export function puedeGestionarGuardias(ctx: ContextoAuth): boolean {
-  return esConduccionDto(ctx);
+  return esConduccion(ctx);
 }
 
 /// Crear tareas. Conducción a cualquiera; encargado de área dentro de su área.
 export function puedeCrearTareas(ctx: ContextoAuth): boolean {
-  return esConduccionDto(ctx) || areasQueEncarga(ctx).length > 0;
+  return esConduccion(ctx) || areasQueEncarga(ctx).length > 0;
 }
 
-/// Asignar una tarea de un área dada. Conducción puede en cualquier área;
-/// el encargado de área solo en la suya (incluye reasignar lo que recibió).
-export function puedeAsignarTareaEnArea(ctx: ContextoAuth, areaId: string): boolean {
-  return esConduccionDto(ctx) || esEncargadoDeArea(ctx, areaId);
+/// Crear/asignar una tarea de un área dada (null = tarea general del dto).
+/// Conducción puede en cualquier área y en las generales; el encargado de área
+/// solo en la suya (incluye reasignar lo que recibió — PRD §3.5/§4.3).
+export function puedeCrearTareaEnArea(
+  ctx: ContextoAuth,
+  areaId: string | null,
+): boolean {
+  if (esConduccion(ctx)) return true;
+  return esEncargadoDeArea(ctx, areaId);
 }
 
-/// Dar el visto bueno (Pendiente → En revisión → Completa) de una tarea del área.
+/// Dar el visto bueno (En revisión → Completa) de una tarea del área.
 /// Conducción en cualquier área; encargado de área en la suya (PRD §4.3).
-export function puedeAprobarTareaEnArea(ctx: ContextoAuth, areaId: string): boolean {
-  return esConduccionDto(ctx) || esEncargadoDeArea(ctx, areaId);
+export function puedeAprobarTareaEnArea(
+  ctx: ContextoAuth,
+  areaId: string | null,
+): boolean {
+  return esConduccion(ctx) || esEncargadoDeArea(ctx, areaId);
 }
 
 /// Ver/controlar los fichados. Oficina y encargado, cualquiera de los dos.
 export function puedeVerFichados(ctx: ContextoAuth): boolean {
-  return esConduccionDto(ctx);
+  return esConduccion(ctx);
 }
 
 /// Reportar novedades: cualquiera del destacamento puede (PRD §4.6).
@@ -89,8 +98,7 @@ export function puedeReportarNovedad(_ctx: ContextoAuth): boolean {
   return true;
 }
 
-/// Crear parte de intervención: cualquiera puede (en una salida no se sabe de
-/// antemano quién saldrá ni su rango — PRD §4.7).
+/// Crear parte de intervención: cualquiera puede (PRD §4.7).
 export function puedeCrearParte(_ctx: ContextoAuth): boolean {
   return true;
 }

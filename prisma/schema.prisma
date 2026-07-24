@@ -59,6 +59,7 @@ model Destacamento {
 
   usuarios Usuario[]
   areas    Area[]
+  tareas   Tarea[]
 
   @@map("destacamento")
 }
@@ -80,8 +81,12 @@ model Usuario {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
-  asignaciones AsignacionRol[]
+  destacamento    Destacamento    @relation(fields: [destacamentoId], references: [id])
+  asignaciones    AsignacionRol[]
+  tareasCreadas   Tarea[]         @relation("TareaCreador")
+  tareasAprobadas Tarea[]         @relation("TareaAprobador")
+  tareasAsignadas TareaAsignado[]
+  adjuntosSubidos TareaAdjunto[]
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -97,6 +102,7 @@ model Area {
 
   destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
   asignaciones AsignacionRol[]
+  tareas       Tarea[]
 
   @@unique([destacamentoId, nombre])
   @@index([destacamentoId])
@@ -121,4 +127,77 @@ model AsignacionRol {
   @@index([usuarioId])
   @@index([areaId])
   @@map("asignacion_rol")
+}
+
+// ---------------------------------------------------------------------------
+// Tareas (PRD §4.3)
+// ---------------------------------------------------------------------------
+
+enum Prioridad {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+/// Flujo: Pendiente → En revisión (requiere aprobación) → Completa.
+enum EstadoTarea {
+  PENDIENTE
+  EN_REVISION
+  COMPLETA
+}
+
+model Tarea {
+  id             String      @id @default(cuid())
+  titulo         String
+  descripcion    String?
+  prioridad      Prioridad   @default(MEDIA)
+  estado         EstadoTarea @default(PENDIENTE)
+  fechaLimite    DateTime?
+  destacamentoId String
+  areaId         String? // null = tarea general del destacamento
+  creadorId      String
+  aprobadorId    String? // quién dio el visto bueno
+  aprobadaEn     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
+  area         Area?           @relation(fields: [areaId], references: [id])
+  creador      Usuario         @relation("TareaCreador", fields: [creadorId], references: [id])
+  aprobador    Usuario?        @relation("TareaAprobador", fields: [aprobadorId], references: [id])
+  asignados    TareaAsignado[]
+  adjuntos     TareaAdjunto[]
+
+  @@index([destacamentoId])
+  @@index([areaId])
+  @@map("tarea")
+}
+
+/// Responsables de una tarea (puede haber varios).
+model TareaAsignado {
+  id        String @id @default(cuid())
+  tareaId   String
+  usuarioId String
+
+  tarea   Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([tareaId, usuarioId])
+  @@index([usuarioId])
+  @@map("tarea_asignado")
+}
+
+/// Evidencia fotográfica de la tarea (path en el bucket de Supabase Storage).
+model TareaAdjunto {
+  id          String   @id @default(cuid())
+  tareaId     String
+  path        String
+  subidoPorId String
+  createdAt   DateTime @default(now())
+
+  tarea    Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  subidoPor Usuario @relation(fields: [subidoPorId], references: [id])
+
+  @@index([tareaId])
+  @@map("tarea_adjunto")
 }
