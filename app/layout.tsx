@@ -12,9 +12,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// URL base para resolver las imágenes de preview a absolutas. En Vercel se
+// toma el dominio de producción; en local cae a localhost.
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
+const TITULO = "Bomberos Llavallol · Gestión";
+const DESCRIPCION =
+  "Gestión del Destacamento N°3 de Llavallol — Bomberos Voluntarios de Lomas de Zamora.";
+
 export const metadata: Metadata = {
-  title: "Bomberos Llavallol · Gestión",
-  description: "Gestión del Destacamento N°3 de Llavallol",
+  metadataBase: new URL(siteUrl),
+  title: TITULO,
+  description: DESCRIPCION,
+  openGraph: {
+    title: TITULO,
+    description: DESCRIPCION,
+    type: "website",
+    locale: "es_AR",
+    images: [
+      {
+        url: "/logo-bomberos.jpeg",
+        width: 400,
+        height: 400,
+        alt: "Escudo de Bomberos Voluntarios de Lomas de Zamora",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: TITULO,
+    description: DESCRIPCION,
+    images: ["/logo-bomberos.jpeg"],
+  },
+  icons: { icon: "/logo-bomberos.jpeg", apple: "/logo-bomberos.jpeg" },
 };
 
 // Fija el tema antes del primer paint para evitar el "flash": usa la preferencia
