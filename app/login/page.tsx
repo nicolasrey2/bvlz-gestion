@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useActionState } from "react";
 import { login, type EstadoLogin } from "./actions";
+import logoCuartel from "@/public/logo-cuartel.png";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState<EstadoLogin, FormData>(
@@ -10,14 +12,20 @@ export default function LoginPage() {
   );
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center bg-zinc-50 px-6 dark:bg-zinc-950">
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-zinc-100 px-6 dark:bg-zinc-950">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-red-700 dark:text-red-500">
-            Bomberos Llavallol
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Destacamento N°3 · Gestión interna
+        <div className="mb-8 flex flex-col items-center gap-3">
+          {/* Caja blanca: el logo es verde/dorado y así se lee en ambos temas. */}
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <Image
+              src={logoCuartel}
+              alt="Bomberos Voluntarios de Lomas de Zamora"
+              priority
+              className="h-auto w-56"
+            />
+          </div>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Destacamento N°3 Llavallol · Gestión interna
           </p>
         </div>
 

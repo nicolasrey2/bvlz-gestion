@@ -20,7 +20,7 @@ export default async function PersonalPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-4 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-4 p-6">
       <header className="flex items-center justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-500">

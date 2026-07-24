@@ -58,7 +58,7 @@ export default async function DetalleUsuarioPage({
     (NOMBRE_ROL[a.rol] ?? a.rol) + (a.area ? ` · ${a.area.nombre}` : "");
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-6">
       <header>
         <Link href="/personal" className="text-sm text-zinc-500">
           ← Personal

@@ -1,9 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getAuthUser, getUsuarioActual, getContextoAuth } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { NOMBRE_ROL } from "@/lib/dominio";
 import { logout } from "./login/actions";
+import { ToggleTema } from "@/components/ToggleTema";
+import logoCuartel from "@/public/logo-cuartel.png";
 
 export default async function Home() {
   // El proxy ya redirige a no autenticados, pero reforzamos en el servidor.
@@ -33,26 +36,42 @@ export default async function Home() {
   const esConduccion = ctx ? puedeGestionarUsuarios(ctx) : false;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 p-6">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-red-700 dark:text-red-500">
-            {usuario.destacamento.nombre}
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            {usuario.nombre} {usuario.apellido}
-          </p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6 p-6">
+      <header className="flex items-center justify-between gap-3">
+        <div className="rounded-xl bg-white p-2 shadow-sm">
+          <Image
+            src={logoCuartel}
+            alt="Bomberos Voluntarios de Lomas de Zamora"
+            priority
+            className="h-auto w-32 sm:w-40"
+          />
         </div>
-        <form action={logout}>
-          <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-            Salir
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <ToggleTema />
+          <form action={logout}>
+            <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+              Salir
+            </button>
+          </form>
+        </div>
       </header>
 
-      <nav className="grid grid-cols-2 gap-3">
+      <div>
+        <h1 className="text-xl font-bold text-red-700 dark:text-red-500">
+          {usuario.destacamento.nombre}
+        </h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          {usuario.nombre} {usuario.apellido}
+        </p>
+      </div>
+
+      <nav className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Tarjeta href="/tareas" titulo="Tareas" desc="Crear y seguir" />
-        <Tarjeta href="/destacamento" titulo="Destacamento" desc="Organigrama y áreas" />
+        <Tarjeta
+          href="/destacamento"
+          titulo="Destacamento"
+          desc="Organigrama y áreas"
+        />
         {esConduccion && (
           <Tarjeta href="/personal" titulo="Personal" desc="Altas y roles" />
         )}
@@ -77,7 +96,7 @@ export default async function Home() {
       </section>
 
       <p className="text-center text-xs text-zinc-400">
-        Fase 1 · próximamente: tareas, guardias y partes.
+        Fase 2 · próximamente: guardias, fichado y partes.
       </p>
     </main>
   );

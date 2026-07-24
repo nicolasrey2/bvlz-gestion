@@ -40,7 +40,7 @@ export default async function DestacamentoPage() {
   const subEncargados = conduccion("SUB_ENCARGADO");
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-5 p-6">
       <header>
         <Link href="/" className="text-sm text-zinc-500">
           ← Inicio

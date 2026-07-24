@@ -17,7 +17,7 @@ export default async function NuevoUsuarioPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-4 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-4 p-6">
       <header>
         <Link href="/personal" className="text-sm text-zinc-500">
           ← Personal
