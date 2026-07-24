@@ -18,6 +18,16 @@ const esquema = z.object({
   participantes: z.array(z.string()),
 });
 
+// Igual que `esquema`, pero sin `tipo`: al editar, el tipo de guardia no
+// cambia (se mantiene el que ya tiene en la base).
+const esquemaEditar = z.object({
+  guardiaId: z.string().min(1),
+  fecha: z.string().min(1, "Elegí una fecha."),
+  cuarteleroNombre: z.string().trim().optional(),
+  notas: z.string().trim().optional(),
+  participantes: z.array(z.string()),
+});
+
 // Mes (YYYY-MM) de una fecha ISO "YYYY-MM-DD", para volver al calendario.
 function mesDe(fechaISO: string): string {
   return fechaISO.slice(0, 7);
@@ -81,6 +91,81 @@ export async function crearGuardia(
           ? { create: participantesValidos.map((u) => ({ usuarioId: u.id })) }
           : undefined,
     },
+  });
+
+  const mes = mesDe(d.fecha);
+  revalidatePath("/guardias");
+  redirect(`/guardias?mes=${mes}`);
+}
+
+/// Edición de guardia. Igual alcance que el alta (solo conducción, PRD §4.4).
+/// El tipo (INTERNA/CUARTELERO) NO se puede cambiar: se mantiene el original y
+/// solo se actualizan fecha, notas, y — según el tipo — participantes o
+/// cuarteleroNombre.
+export async function editarGuardia(
+  _prev: EstadoForm,
+  formData: FormData,
+): Promise<EstadoForm> {
+  const ctx = await getContextoAuth();
+  if (!ctx) return { error: "Sesión no válida." };
+  if (!puedeGestionarGuardias(ctx)) {
+    return { error: "No tenés permisos para editar guardias." };
+  }
+
+  const parsed = esquemaEditar.safeParse({
+    guardiaId: formData.get("guardiaId"),
+    fecha: formData.get("fecha"),
+    cuarteleroNombre: formData.get("cuarteleroNombre") || undefined,
+    notas: formData.get("notas") || undefined,
+    participantes: formData.getAll("participantes").map(String),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const d = parsed.data;
+
+  // La guardia debe existir y pertenecer al destacamento del usuario.
+  const guardia = await prisma.guardia.findFirst({
+    where: { id: d.guardiaId, destacamentoId: ctx.destacamentoId },
+  });
+  if (!guardia) return { error: "Guardia no encontrada." };
+
+  const tipo = guardia.tipo;
+
+  if (tipo === "CUARTELERO" && !d.cuarteleroNombre) {
+    return { error: "Ingresá el nombre del cuartelero." };
+  }
+
+  // Para internas, validar que los participantes sean del destacamento.
+  let participantesValidos: { id: string }[] = [];
+  if (tipo === "INTERNA") {
+    participantesValidos = await prisma.usuario.findMany({
+      where: { id: { in: d.participantes }, destacamentoId: ctx.destacamentoId },
+      select: { id: true },
+    });
+    if (participantesValidos.length === 0) {
+      return { error: "Elegí al menos un bombero para la guardia interna." };
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.guardia.update({
+      where: { id: guardia.id },
+      data: {
+        // Fecha "día": medianoche UTC, igual criterio que en el alta.
+        fecha: new Date(`${d.fecha}T00:00:00Z`),
+        cuarteleroNombre: tipo === "CUARTELERO" ? d.cuarteleroNombre : null,
+        notas: d.notas,
+      },
+    });
+    if (tipo === "INTERNA") {
+      // Se reemplaza el set completo de participantes (más simple y sin
+      // riesgo de dejar filas viejas colgadas).
+      await tx.guardiaParticipante.deleteMany({ where: { guardiaId: guardia.id } });
+      await tx.guardiaParticipante.createMany({
+        data: participantesValidos.map((u) => ({ guardiaId: guardia.id, usuarioId: u.id })),
+      });
+    }
   });
 
   const mes = mesDe(d.fecha);

@@ -7,6 +7,7 @@ import { puedeGestionarGuardias } from "@/lib/permisos";
 import { NOMBRE_TIPO_GUARDIA, horarioGuardia } from "@/lib/dominio";
 import { eliminarGuardia } from "@/server/guardias";
 import { CederGuardia } from "@/components/CederGuardia";
+import { BotonConfirmar } from "@/components/BotonConfirmar";
 import { fmtDiaSemana, hoyArgentina, rangoMesUTC } from "@/lib/fechas";
 
 const MESES = [
@@ -207,12 +208,23 @@ function TarjetaGuardia({
           </span>
         </div>
         {puedeGestionar && (
-          <form action={eliminarGuardia}>
-            <input type="hidden" name="guardiaId" value={guardia.id} />
-            <button className="text-xs font-medium text-red-700 underline">
-              Eliminar
-            </button>
-          </form>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/guardias/${guardia.id}/editar`}
+              className="text-xs font-medium text-zinc-600 underline dark:text-zinc-300"
+            >
+              Editar
+            </Link>
+            <form action={eliminarGuardia}>
+              <input type="hidden" name="guardiaId" value={guardia.id} />
+              <BotonConfirmar
+                mensaje="¿Eliminar esta guardia?"
+                className="text-xs font-medium text-red-700 underline"
+              >
+                Eliminar
+              </BotonConfirmar>
+            </form>
+          </div>
         )}
       </div>
       <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">{quienes}</p>
