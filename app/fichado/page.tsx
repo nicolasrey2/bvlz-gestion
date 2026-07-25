@@ -5,6 +5,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeVerFichados } from "@/lib/permisos";
 import { NOMBRE_TIPO_FICHADA } from "@/lib/dominio";
 import { FormFichado } from "./FormFichado";
+import { BadgeUbicacion } from "@/components/BadgeUbicacion";
 import { fmtHora, hoyArgentina, rangoDiaAR, rangoDiaUTC, rangoMesAR } from "@/lib/fechas";
 import {
   calcularMinutos,
@@ -96,6 +97,14 @@ export default async function FichadoPage() {
   const minutosMes = calcularMinutos(misFichadasMes, ahora);
   const cumpleMeta = minutosMes / 60 >= META_HORAS_MES;
 
+  // El geo-fichado solo puede verificar si el cuartel tiene coords cargadas.
+  const destacamento = await prisma.destacamento.findUnique({
+    where: { id: ctx.destacamentoId },
+    select: { latitud: true, longitud: true },
+  });
+  const geoActivo =
+    destacamento?.latitud != null && destacamento?.longitud != null;
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-6">
       <header>
@@ -111,6 +120,21 @@ export default async function FichadoPage() {
             : "Hoy no tenés guardia asignada (se registrará como no programada)."}
         </p>
       </header>
+
+      {!geoActivo && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          El geo-fichado no está activo: falta cargar la ubicación del cuartel
+          {verRegistro && (
+            <>
+              {" · "}
+              <Link href="/destacamento" className="underline">
+                configurar
+              </Link>
+            </>
+          )}
+          .
+        </p>
+      )}
 
       {/* En servicio ahora: visible para todo el personal. */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
@@ -132,11 +156,7 @@ export default async function FichadoPage() {
                       no programada
                     </span>
                   )}
-                  {f.ubicacionVerificada === false && f.latitud != null && (
-                    <span className="ml-2 text-xs text-red-600">
-                      fuera del cuartel
-                    </span>
-                  )}
+                  <BadgeUbicacion fichada={f} />
                 </span>
                 <span className="text-zinc-500">desde {fmtHora(f.momento)}</span>
               </li>
@@ -184,6 +204,7 @@ export default async function FichadoPage() {
                       no programada
                     </span>
                   )}
+                  <BadgeUbicacion fichada={f} />
                 </span>
                 <span className="text-zinc-500">{fmtHora(f.momento)}</span>
               </li>
@@ -213,6 +234,7 @@ export default async function FichadoPage() {
                     {f.noProgramada && (
                       <span className="ml-1 text-xs text-amber-600">(NP)</span>
                     )}
+                    <BadgeUbicacion fichada={f} mostrarEnCuartel mostrarDistancia />
                   </span>
                   <span className="text-zinc-500">{fmtHora(f.momento)}</span>
                 </li>
