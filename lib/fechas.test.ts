@@ -8,6 +8,7 @@ import {
   hoyArgentina,
   rangoDiaAR,
   rangoDiaUTC,
+  rangoMesAR,
   rangoMesUTC,
 } from "@/lib/fechas";
 
@@ -147,5 +148,24 @@ describe("rangoMesUTC (rango de un mes como medianoches UTC)", () => {
     const { inicio, fin } = rangoMesUTC(2026, 12);
     expect(inicio.toISOString()).toBe("2026-12-01T00:00:00.000Z");
     expect(fin.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+  });
+});
+
+describe("rangoMesAR (rango de un mes AR como instantes UTC)", () => {
+  it("calcula inicio y fin corridos -03:00 (medianoche local = 03:00Z)", () => {
+    const { inicio, fin } = rangoMesAR(2026, 7);
+    expect(inicio.toISOString()).toBe("2026-07-01T03:00:00.000Z");
+    expect(fin.toISOString()).toBe("2026-08-01T03:00:00.000Z");
+  });
+
+  it("rellena con cero el mes de un solo dígito", () => {
+    const { inicio } = rangoMesAR(2026, 1);
+    expect(inicio.toISOString()).toBe("2026-01-01T03:00:00.000Z");
+  });
+
+  it("maneja el cambio de año (diciembre → enero)", () => {
+    const { inicio, fin } = rangoMesAR(2026, 12);
+    expect(inicio.toISOString()).toBe("2026-12-01T03:00:00.000Z");
+    expect(fin.toISOString()).toBe("2027-01-01T03:00:00.000Z");
   });
 });
