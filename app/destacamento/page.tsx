@@ -4,7 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { esConduccion } from "@/lib/permisos";
 import { nombreRango } from "@/lib/dominio";
-import { Organigrama, type NodoArea } from "@/components/Organigrama";
+import {
+  Organigrama,
+  type NodoArea,
+  type Persona,
+} from "@/components/Organigrama";
 import { FormUbicacionCuartel } from "@/components/FormUbicacionCuartel";
 
 /// Organigrama del destacamento: conducción + áreas con encargado y miembros,
@@ -32,28 +36,36 @@ export default async function DestacamentoPage() {
   });
   if (!dto) redirect("/");
 
-  type Persona = { nombre: string; apellido: string; rango: Parameters<typeof nombreRango>[0] };
-  const conRango = (u: Persona) =>
-    `${nombreRango(u.rango)} ${u.apellido}, ${u.nombre}`;
-  const sinRango = (u: Persona) => `${u.apellido}, ${u.nombre}`;
+  // Persona con el rango separado del nombre (para el chip del organigrama).
+  const aPersona = (u: {
+    nombre: string;
+    apellido: string;
+    rango: Parameters<typeof nombreRango>[0];
+  }): Persona => ({
+    rango: nombreRango(u.rango),
+    nombre: `${u.apellido}, ${u.nombre}`,
+  });
 
-  const porRol = (rol: string) =>
-    dto.usuarios.filter((u) => u.asignaciones.some((a) => a.rol === rol));
+  const primero = (rol: string): Persona | null => {
+    const u = dto.usuarios.find((x) =>
+      x.asignaciones.some((a) => a.rol === rol),
+    );
+    return u ? aPersona(u) : null;
+  };
 
-  const encargado = porRol("ENCARGADO_INTERNO").map(conRango).join(" · ") || null;
-  const subEncargado = porRol("SUB_ENCARGADO").map(conRango).join(" · ") || null;
+  const encargado = primero("ENCARGADO_INTERNO");
+  const subEncargado = primero("SUB_ENCARGADO");
 
-  const areas: NodoArea[] = dto.areas.map((area) => ({
-    nombre: area.nombre,
-    encargado:
-      area.asignaciones
-        .filter((a) => a.rol === "ENCARGADO_AREA")
-        .map((a) => conRango(a.usuario))
-        .join(" · ") || null,
-    miembros: area.asignaciones
-      .filter((a) => a.rol === "MIEMBRO")
-      .map((a) => sinRango(a.usuario)),
-  }));
+  const areas: NodoArea[] = dto.areas.map((area) => {
+    const enc = area.asignaciones.find((a) => a.rol === "ENCARGADO_AREA");
+    return {
+      nombre: area.nombre,
+      encargado: enc ? aPersona(enc.usuario) : null,
+      miembros: area.asignaciones
+        .filter((a) => a.rol === "MIEMBRO")
+        .map((a) => aPersona(a.usuario)),
+    };
+  });
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-6">
