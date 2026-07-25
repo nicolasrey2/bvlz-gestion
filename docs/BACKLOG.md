@@ -176,3 +176,119 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 3. **Parte v2 — secciones condicionales** (Alta, es el módulo estrella).
 4. Layout/nav compartido + toggle de tema global (Media, mejora todo de una).
 5. El resto según necesidad real de uso en Llavallol.
+
+---
+---
+
+# Análisis 2026-07-24 — Catálogo con IDs estables
+
+Relevamiento completo de la app (typecheck limpio + 152 tests verdes al momento
+del análisis). Estos ítems tienen **ID estable** para referenciarlos en ramas,
+commits y PRs (ej. `feat/S1-baja-logica`). No reusar un ID aunque se cierre.
+
+Severidad: 🔴 alta · 🟡 media · 🟢 baja. Estado: `pendiente` · `en curso` · `hecho`.
+
+> Los 7 primeros ítems a atacar y su **plan de paralelización** están en
+> [`PLAN-ARRANQUE.md`](./PLAN-ARRANQUE.md).
+
+## A. Pendientes vs. PRD
+
+### P1 — Delegación de mando ("encargado en funciones") 🔴 · pendiente
+PRD §3.5, §4.6, TECH §4. No existe modelo, acción ni auditoría. `esConduccion()`
+(`lib/permisos.ts:22`) le da al sub-encargado **permanentemente** los permisos del
+encargado; falta el flag temporal con vigencia registrado en el cuaderno.
+- **Archivos:** `prisma/schema.prisma` (modelo `Delegacion`), `lib/permisos.ts`,
+  `lib/auth.ts`, `server/`, UI de conducción.
+- **Aceptación:** activar/desactivar "encargado en funciones" con vigencia; queda en
+  la timeline; el contexto de permisos lo refleja mientras esté vigente.
+
+### P2 — Recuperación de contraseña self-service 🔴 · pendiente
+PRD §4.1. El login no tiene "olvidé mi contraseña"; solo hay `resetearPassword`
+(`server/activacion.ts:114`) que dispara la conducción. Supabase Auth trae reset por
+email.
+- **Archivos:** `app/login/*`, `lib/supabase/*`, plantilla de email en Supabase.
+- **Aceptación:** un usuario pide reset por email y define clave nueva sin la conducción.
+
+### P3 — Fotos en Novedades y Partes 🟡 · pendiente
+PRD §4.6 y §4.7. Solo existe `TareaAdjunto`; `Novedad` y `ParteIntervencion` no tienen
+adjuntos.
+- **Archivos:** `prisma/schema.prisma` (`NovedadAdjunto`, `ParteAdjunto`), migración,
+  `server/novedades.ts`, `server/partes.ts`, `app/novedades/page.tsx`,
+  `app/partes/[id]/page.tsx`, componentes de subida, `scripts/setup-storage.ts`.
+- **Aceptación:** adjuntar/ver fotos (URL firmada, bucket privado) en novedades y en
+  partes abiertos; el cerrado no admite subir.
+
+### P4 — Filtro de novedades por tipo 🟡 · pendiente
+PRD §4.6 ("filtros por fecha **y tipo**"). Hoy solo filtra por ventana de días.
+- **Archivos:** `app/novedades/page.tsx`.
+- **Aceptación:** filtrar la timeline por tipo (incluye orígenes automáticos); combina
+  con el filtro de días; mobile-first.
+
+### P5 — Catálogo de cuarteleros 🟢 · pendiente
+PRD §4.4 / §6. Hoy el nombre del cuartelero se tipea a mano en cada guardia
+(`server/guardias.ts`).
+- **Archivos:** `prisma/schema.prisma` (`CuarteleroExterno` + FK opcional en `Guardia`),
+  migración, `server/guardias.ts`, `app/guardias/nueva` y `editar`, ABM del catálogo.
+- **Aceptación:** al armar guardia de cuartelero se elige de un catálogo (con alta
+  rápida); las guardias viejas con nombre libre siguen funcionando.
+
+### P6 — Completar el parte oficial (v2) 🟢 · pendiente
+Simplificaciones v1 (TECH §5): `personal` textarea → jerarquía+apellido+chapa+G/BP;
+`concurrentes` string → tabla con N°/a cargo/matrícula/observaciones; separar
+"concurrió" vs "en el cuartel".
+- **Archivos:** `lib/partesDetalle.ts`, `components/FormNuevoParte.tsx`,
+  `app/partes/[id]/page.tsx`, `pdf/`.
+
+## B. Smells / mejoras técnicas
+
+### S1 — La baja lógica no corta el acceso 🔴 · pendiente
+`getUsuarioActual()` (`lib/auth.ts:16`) y el proxy no filtran `activo`. Un usuario
+desactivado sigue operando hasta que expire su sesión.
+- **Archivos:** `lib/auth.ts`, `lib/supabase/middleware.ts` (opcional).
+- **Aceptación:** `activo=false` ⇒ sin contexto válido, redirigido a login; con test.
+
+### S2 — Acciones que fallan en silencio 🟡 · pendiente
+`eliminarTarea`, `aprobarTarea`, `rechazarTarea`, `reasignarTarea`, `cederGuardia`,
+`editarParte`, `cerrarParte`, `eliminarNovedad` hacen `return;` mudo. Inconsistente
+con las acciones que usan `useActionState`.
+- **Archivos:** transversal — `server/*.ts` + componentes de acción.
+- **Aceptación:** toda acción de escritura da feedback (error/éxito) con convención
+  única (ver `PLAN-ARRANQUE.md` §Fase 0).
+
+### S3 — Validación de `activo` no re-chequeada en el servidor 🟡 · pendiente
+`crearTarea` (`server/tareas.ts:80`), `crearGuardia`/`editarGuardia` validan
+destacamento pero no `activo`.
+- **Archivos:** `server/tareas.ts`, `server/guardias.ts`.
+- **Aceptación:** asignados/participantes deben ser `activo=true`; con test.
+
+### S4 — Email sin normalizar ni validar como email 🟡 · pendiente
+`esquema.email` es `z.string().trim().min(3)` (`server/personal.ts:26`): sin formato ni
+minúsculas; `Usuario.email` es `@unique` case-sensitive.
+- **Archivos:** `server/personal.ts` (y `app/login/actions.ts` por consistencia).
+- **Aceptación:** email validado y normalizado a minúsculas antes de crear; con test.
+
+### S5 — Carreras sin constraint de respaldo 🟢 · pendiente
+Doble fichada (`server/fichado.ts:41`) y roles singleton (`server/personal.ts:237`) se
+controlan en app-level sin constraint DB.
+
+### S6 — Listados sin paginación 🟢 · pendiente
+`tareas`, `partes`, `guardias` traen todo (solo `novedades` limita).
+
+### S7 — Ruido de "alta de guardia" en el cuaderno 🟢 · pendiente
+Cargar el cronograma mensual inunda la timeline con "Alta de guardia"
+(`app/novedades/page.tsx:55`).
+
+## C. Features nuevas
+
+| ID | Feature | Esfuerzo |
+|----|---------|----------|
+| F1 | PWA instalable + push (nueva tarea, guardia próxima, aprobación) | Medio |
+| F2 | Widget en home: próxima guardia, pendientes propios, en servicio | Bajo |
+| F3 | Recordatorio de guardia (día antes) — depende de F1 | Bajo-Medio |
+| F4 | Tareas recurrentes (PRD §4.3) | Medio |
+| F5 | Export de novedades / reporte mensual a PDF | Bajo |
+| F6 | Vencimientos y alertas (matafuegos, VTV de móviles, equipos) | Medio |
+| F7 | Historial de rotaciones visible (dato ya en `AsignacionRol`) | Bajo |
+| F8 | Firma del parte según rango (PRD §3.5) | Medio |
+| F9 | Inventario de materiales por área ligado a novedades | Medio |
+| F10 | Modo offline para fichar/cargar novedad sin señal | Alto |
