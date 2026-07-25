@@ -6,6 +6,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { alcanceVisibilidad, puedeCrearTareas } from "@/lib/permisos";
 import { NOMBRE_ESTADO, COLOR_ESTADO, NOMBRE_PRIORIDAD } from "@/lib/dominio";
 import { fmtFechaDia, hoyArgentina, rangoDiaUTC } from "@/lib/fechas";
+import { esTareaVencida } from "@/lib/tareas";
 
 // Filtros de estado disponibles en la UI. "activas" oculta las completas.
 const FILTROS = {
@@ -19,17 +20,6 @@ type Filtro = keyof typeof FILTROS;
 type TareaLista = Prisma.TareaGetPayload<{
   include: { area: true; asignados: { include: { usuario: true } } };
 }>;
-
-/// Una tarea está vencida si tiene fecha límite anterior a hoy y no está
-/// completa. `inicioHoyUTC` se calcula una vez por request (no a nivel de
-/// módulo: el proceso del servidor vive más de un día).
-function esTareaVencida(t: TareaLista, inicioHoyUTC: Date): boolean {
-  return (
-    t.estado !== "COMPLETA" &&
-    t.fechaLimite !== null &&
-    t.fechaLimite < inicioHoyUTC
-  );
-}
 
 /// Orden de urgencia dentro de un grupo: vencidas primero, luego las que
 /// tienen fecha límite (la más próxima antes), y al final las sin fecha.

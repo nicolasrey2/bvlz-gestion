@@ -75,6 +75,9 @@ export default async function Home() {
         {esConduccion && (
           <Tarjeta href="/personal" titulo="Personal" desc="Altas y roles" />
         )}
+        {esConduccion && (
+          <Tarjeta href="/reportes" titulo="Reportes" desc="Estadísticas" />
+        )}
       </nav>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
