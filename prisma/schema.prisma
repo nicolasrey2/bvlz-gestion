@@ -54,6 +54,11 @@ model Destacamento {
   id        String   @id @default(cuid())
   nombre    String
   cuartel   String? // ej. "Llavallol"
+  // Ubicación del cuartel para el geo-fichado (suave). La geo se activa cuando
+  // latitud/longitud están cargadas.
+  latitud       Float?
+  longitud      Float?
+  radioFichadoM Int     @default(200)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -308,6 +313,11 @@ model Fichada {
   tipo           TipoFichada
   momento        DateTime    @default(now())
   noProgramada   Boolean     @default(false) // fichó una guardia que no le tocaba
+  // Geo-fichado (suave): dónde fichó y si estaba dentro del radio del cuartel.
+  latitud             Float?
+  longitud            Float?
+  distanciaM          Float?
+  ubicacionVerificada Boolean @default(false)
 
   usuario Usuario  @relation(fields: [usuarioId], references: [id])
   guardia Guardia? @relation(fields: [guardiaId], references: [id])

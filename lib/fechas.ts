@@ -94,3 +94,14 @@ export function rangoMesUTC(y: number, m: number) {
     fin: new Date(Date.UTC(y, m, 1)),
   };
 }
+
+/// Rango [inicio, fin) de un mes como INSTANTES en hora de Argentina (para
+/// timestamps como fichadas). m es 1-12; maneja el cambio de año dic→ene.
+export function rangoMesAR(y: number, m: number) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const inicio = new Date(`${y}-${p(m)}-01T00:00:00-03:00`);
+  const finY = m === 12 ? y + 1 : y;
+  const finM = m === 12 ? 1 : m + 1;
+  const fin = new Date(`${finY}-${p(finM)}-01T00:00:00-03:00`);
+  return { inicio, fin };
+}

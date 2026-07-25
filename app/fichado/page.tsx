@@ -5,7 +5,28 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeVerFichados } from "@/lib/permisos";
 import { NOMBRE_TIPO_FICHADA } from "@/lib/dominio";
 import { FormFichado } from "./FormFichado";
-import { fmtHora, hoyArgentina, rangoDiaAR, rangoDiaUTC } from "@/lib/fechas";
+import { fmtHora, hoyArgentina, rangoDiaAR, rangoDiaUTC, rangoMesAR } from "@/lib/fechas";
+import {
+  calcularMinutos,
+  enServicio,
+  formatearHoras,
+  META_HORAS_MES,
+  VENTANA_SERVICIO_MS,
+  type FichadaMin,
+} from "@/lib/servicio";
+
+/// De una lista de fichadas (más reciente primero) de varios usuarios, se
+/// queda con la última fichada de cada usuario. Sirve para derivar "quién
+/// está en servicio ahora" sin una consulta por persona.
+function ultimaPorUsuario<T extends { usuarioId: string }>(
+  fichadas: T[],
+): Map<string, T> {
+  const porUsuario = new Map<string, T>();
+  for (const f of fichadas) {
+    if (!porUsuario.has(f.usuarioId)) porUsuario.set(f.usuarioId, f);
+  }
+  return porUsuario;
+}
 
 export default async function FichadoPage() {
   const ctx = await getContextoAuth();
@@ -47,6 +68,34 @@ export default async function FichadoPage() {
       })
     : [];
 
+  // "En servicio ahora": última fichada de cada usuario dentro de la ventana
+  // reciente; si esa última es una ENTRADA vigente, la persona está adentro.
+  // Visible para todo el personal (no solo conducción).
+  const ahora = new Date();
+  const fichadasRecientes = await prisma.fichada.findMany({
+    where: {
+      destacamentoId: ctx.destacamentoId,
+      momento: { gte: new Date(ahora.getTime() - VENTANA_SERVICIO_MS) },
+    },
+    include: { usuario: true },
+    orderBy: { momento: "desc" },
+  });
+  const enServicioAhora = [...ultimaPorUsuario(fichadasRecientes).values()].filter(
+    (f) => enServicio(f as FichadaMin, ahora),
+  );
+
+  // Horas del mes: fichadas propias del mes AR en curso, emparejadas
+  // ENTRADA→SALIDA (turno abierto cuenta hasta ahora).
+  const mesActual = rangoMesAR(y, m);
+  const misFichadasMes = await prisma.fichada.findMany({
+    where: {
+      usuarioId: ctx.usuarioId,
+      momento: { gte: mesActual.inicio, lt: mesActual.fin },
+    },
+  });
+  const minutosMes = calcularMinutos(misFichadasMes, ahora);
+  const cumpleMeta = minutosMes / 60 >= META_HORAS_MES;
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-6">
       <header>
@@ -63,8 +112,59 @@ export default async function FichadoPage() {
         </p>
       </header>
 
+      {/* En servicio ahora: visible para todo el personal. */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+          En servicio ahora
+        </h2>
+        {enServicioAhora.length === 0 ? (
+          <p className="text-sm text-zinc-400 italic">
+            Nadie está en servicio en este momento.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1 text-sm text-zinc-800 dark:text-zinc-200">
+            {enServicioAhora.map((f) => (
+              <li key={f.usuarioId} className="flex flex-wrap items-center justify-between gap-1">
+                <span>
+                  {f.usuario.apellido}, {f.usuario.nombre}
+                  {f.noProgramada && (
+                    <span className="ml-2 text-xs text-amber-600">
+                      no programada
+                    </span>
+                  )}
+                  {f.ubicacionVerificada === false && f.latitud != null && (
+                    <span className="ml-2 text-xs text-red-600">
+                      fuera del cuartel
+                    </span>
+                  )}
+                </span>
+                <span className="text-zinc-500">desde {fmtHora(f.momento)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* Botones de fichado */}
       <FormFichado />
+
+      {/* Horas del mes (propias). */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+          Horas del mes
+        </h2>
+        <p className="mb-2 text-sm text-zinc-800 dark:text-zinc-200">
+          Tus horas este mes: {formatearHoras(minutosMes)} de {META_HORAS_MES}h
+        </p>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <div
+            className={`h-full rounded-full ${cumpleMeta ? "bg-green-600" : "bg-red-700"}`}
+            style={{
+              width: `${Math.min(100, (minutosMes / 60 / META_HORAS_MES) * 100)}%`,
+            }}
+          />
+        </div>
+      </section>
 
       {/* Mis fichadas de hoy */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">

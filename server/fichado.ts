@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { hoyArgentina, rangoDiaUTC } from "@/lib/fechas";
+import { distanciaMetros } from "@/lib/geo";
 import type { TipoFichada } from "@/generated/prisma/client";
+
+/// Convierte un campo de formData a número, o null si viene vacío/ausente/no
+/// numérico. Se usa para lat/lng del geo-fichado, que son siempre opcionales.
+function numeroOpcional(valor: FormDataEntryValue | null): number | null {
+  if (valor === null) return null;
+  const n = parseFloat(String(valor));
+  return Number.isFinite(n) ? n : null;
+}
 
 /// Estado que devuelve `fichar` a `useActionState` (mismo patrón que el resto
 /// de las Server Actions con formulario, ver `server/novedades.ts`).
@@ -56,6 +65,35 @@ export async function fichar(
     },
   });
 
+  // Geo-fichado SUAVE: la ubicación es siempre opcional y nunca bloquea el
+  // fichado. Si tenemos coords del cuartel Y de la fichada, calculamos la
+  // distancia y si cae dentro del radio configurado; si falta alguna de las
+  // dos, se guarda lo que haya y ubicacionVerificada queda en false.
+  const lat = numeroOpcional(formData.get("lat"));
+  const lng = numeroOpcional(formData.get("lng"));
+
+  const destacamento = await prisma.destacamento.findUnique({
+    where: { id: ctx.destacamentoId },
+    select: { latitud: true, longitud: true, radioFichadoM: true },
+  });
+
+  let distanciaM: number | null = null;
+  let ubicacionVerificada = false;
+  if (
+    lat !== null &&
+    lng !== null &&
+    destacamento?.latitud != null &&
+    destacamento?.longitud != null
+  ) {
+    distanciaM = distanciaMetros(
+      lat,
+      lng,
+      destacamento.latitud,
+      destacamento.longitud,
+    );
+    ubicacionVerificada = distanciaM <= destacamento.radioFichadoM;
+  }
+
   await prisma.fichada.create({
     data: {
       usuarioId: ctx.usuarioId,
@@ -63,6 +101,10 @@ export async function fichar(
       tipo: tipo as TipoFichada,
       guardiaId: guardia?.id ?? null,
       noProgramada: !guardia,
+      latitud: lat,
+      longitud: lng,
+      distanciaM,
+      ubicacionVerificada,
     },
   });
 

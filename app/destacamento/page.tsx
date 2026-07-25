@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
+import { esConduccion } from "@/lib/permisos";
 import { nombreRango } from "@/lib/dominio";
 import { Organigrama, type NodoArea } from "@/components/Organigrama";
+import { FormUbicacionCuartel } from "@/components/FormUbicacionCuartel";
 
 /// Organigrama del destacamento: conducción + áreas con encargado y miembros,
 /// dibujado como diagrama. Visible para todo el personal autenticado.
@@ -76,6 +78,24 @@ export default async function DestacamentoPage() {
       <p className="text-center text-xs text-zinc-400">
         Deslizá horizontalmente para ver todas las áreas.
       </p>
+
+      {/* Config de geo-fichado: solo conducción la ve y la edita. */}
+      {esConduccion(ctx) && (
+        <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+          <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+            Ubicación del cuartel (para fichado)
+          </h2>
+          <p className="mb-3 text-xs text-zinc-400">
+            Se usa para el geo-fichado: nunca bloquea a nadie, solo marca si la
+            fichada quedó dentro del radio configurado.
+          </p>
+          <FormUbicacionCuartel
+            latitud={dto.latitud}
+            longitud={dto.longitud}
+            radio={dto.radioFichadoM}
+          />
+        </section>
+      )}
     </main>
   );
 }

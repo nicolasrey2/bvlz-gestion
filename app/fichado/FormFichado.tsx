@@ -1,7 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { fichar, type EstadoFichado } from "@/server/fichado";
+
+/// Coordenadas del dispositivo al momento de fichar, o null si no hay
+/// permiso/soporte/se venció el tiempo. Nunca bloquea el fichado.
+type Coords = { lat: number; lng: number } | null;
 
 /// Botones de fichar entrada/salida. Cada uno tiene su propio estado de
 /// `useActionState` (misma action del servidor) para poder mostrar el error
@@ -16,6 +20,25 @@ export function FormFichado() {
     FormData
   >(fichar, null);
 
+  // Geo-fichado SUAVE: se intenta obtener la ubicación al entrar a la
+  // pantalla, pero si se niega el permiso, no hay soporte o tarda demasiado,
+  // simplemente queda en null y el fichado sigue funcionando igual.
+  const [coords, setCoords] = useState<Coords>(null);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        // Permiso denegado, timeout u otro error: seguimos sin coords.
+        setCoords(null);
+      },
+      { timeout: 8000 },
+    );
+  }, []);
+
   const error = entradaState?.error ?? salidaState?.error;
 
   return (
@@ -23,6 +46,8 @@ export function FormFichado() {
       <div className="grid grid-cols-2 gap-3">
         <form action={entradaAction}>
           <input type="hidden" name="tipo" value="ENTRADA" />
+          <input type="hidden" name="lat" value={coords?.lat ?? ""} />
+          <input type="hidden" name="lng" value={coords?.lng ?? ""} />
           <button
             type="submit"
             disabled={entradaPending}
@@ -33,6 +58,8 @@ export function FormFichado() {
         </form>
         <form action={salidaAction}>
           <input type="hidden" name="tipo" value="SALIDA" />
+          <input type="hidden" name="lat" value={coords?.lat ?? ""} />
+          <input type="hidden" name="lng" value={coords?.lng ?? ""} />
           <button
             type="submit"
             disabled={salidaPending}
