@@ -96,7 +96,7 @@ export default async function Home() {
       </section>
 
       <p className="text-center text-xs text-zinc-400">
-        Fase 2 · próximamente: guardias, fichado y partes.
+        Bomberos Voluntarios de Lomas de Zamora
       </p>
     </main>
   );

@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { nombreRango } from "@/lib/dominio";
+import { Organigrama, type NodoArea } from "@/components/Organigrama";
 
-/// Organigrama del destacamento: conducción + áreas con encargado y miembros.
-/// Visible para todo el personal autenticado.
+/// Organigrama del destacamento: conducción + áreas con encargado y miembros,
+/// dibujado como diagrama. Visible para todo el personal autenticado.
 export default async function DestacamentoPage() {
   const ctx = await getContextoAuth();
   if (!ctx) redirect("/login");
@@ -29,18 +30,31 @@ export default async function DestacamentoPage() {
   });
   if (!dto) redirect("/");
 
-  // Nombre legible de un usuario con su rango.
-  const conRango = (u: { nombre: string; apellido: string; rango: Parameters<typeof nombreRango>[0] }) =>
+  type Persona = { nombre: string; apellido: string; rango: Parameters<typeof nombreRango>[0] };
+  const conRango = (u: Persona) =>
     `${nombreRango(u.rango)} ${u.apellido}, ${u.nombre}`;
+  const sinRango = (u: Persona) => `${u.apellido}, ${u.nombre}`;
 
-  const conduccion = (rol: string) =>
+  const porRol = (rol: string) =>
     dto.usuarios.filter((u) => u.asignaciones.some((a) => a.rol === rol));
 
-  const encargados = conduccion("ENCARGADO_INTERNO");
-  const subEncargados = conduccion("SUB_ENCARGADO");
+  const encargado = porRol("ENCARGADO_INTERNO").map(conRango).join(" · ") || null;
+  const subEncargado = porRol("SUB_ENCARGADO").map(conRango).join(" · ") || null;
+
+  const areas: NodoArea[] = dto.areas.map((area) => ({
+    nombre: area.nombre,
+    encargado:
+      area.asignaciones
+        .filter((a) => a.rol === "ENCARGADO_AREA")
+        .map((a) => conRango(a.usuario))
+        .join(" · ") || null,
+    miembros: area.asignaciones
+      .filter((a) => a.rol === "MIEMBRO")
+      .map((a) => sinRango(a.usuario)),
+  }));
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-5 p-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-6">
       <header>
         <Link href="/" className="text-sm text-zinc-500">
           ← Inicio
@@ -48,56 +62,20 @@ export default async function DestacamentoPage() {
         <h1 className="text-xl font-bold text-red-700 dark:text-red-500">
           {dto.nombre}
         </h1>
+        <p className="text-sm text-zinc-500">Organigrama</p>
       </header>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
-        <h2 className="mb-2 text-sm font-semibold text-zinc-500">Conducción</h2>
-        <Fila titulo="Encargado Interno" personas={encargados.map(conRango)} />
-        <Fila titulo="Sub-encargado" personas={subEncargados.map(conRango)} />
+        <Organigrama
+          encargado={encargado}
+          subEncargado={subEncargado}
+          areas={areas}
+        />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-zinc-500">Áreas</h2>
-        {dto.areas.map((area) => {
-          const encargado = area.asignaciones.filter(
-            (a) => a.rol === "ENCARGADO_AREA",
-          );
-          const miembros = area.asignaciones.filter((a) => a.rol === "MIEMBRO");
-          return (
-            <div
-              key={area.id}
-              className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900"
-            >
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {area.nombre}
-              </h3>
-              <Fila
-                titulo="Encargado"
-                personas={encargado.map((a) => conRango(a.usuario))}
-              />
-              <Fila
-                titulo="Miembros"
-                personas={miembros.map((a) => conRango(a.usuario))}
-              />
-            </div>
-          );
-        })}
-      </section>
+      <p className="text-center text-xs text-zinc-400">
+        Deslizá horizontalmente para ver todas las áreas.
+      </p>
     </main>
-  );
-}
-
-function Fila({ titulo, personas }: { titulo: string; personas: string[] }) {
-  return (
-    <div className="mt-1 text-sm">
-      <span className="text-zinc-400">{titulo}: </span>
-      {personas.length === 0 ? (
-        <span className="text-zinc-400 italic">sin asignar</span>
-      ) : (
-        <span className="text-zinc-800 dark:text-zinc-200">
-          {personas.join(" · ")}
-        </span>
-      )}
-    </div>
   );
 }
