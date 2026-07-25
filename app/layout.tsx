@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToggleTema } from "@/components/ToggleTema";
+import { ToastProvider } from "@/components/ui/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -73,7 +74,8 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <script dangerouslySetInnerHTML={{ __html: scriptTema }} />
-        {children}
+        {/* Provider de toasts global: confirmaciones de éxito de las acciones. */}
+        <ToastProvider>{children}</ToastProvider>
         {/* Toggle de tema global: disponible en todas las pantallas. */}
         <div className="fixed bottom-4 right-4 z-50">
           <ToggleTema />

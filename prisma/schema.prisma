@@ -62,12 +62,13 @@ model Destacamento {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  usuarios  Usuario[]
-  areas     Area[]
-  tareas    Tarea[]
-  guardias  Guardia[]
-  novedades Novedad[]
-  partes    ParteIntervencion[]
+  usuarios    Usuario[]
+  areas       Area[]
+  tareas      Tarea[]
+  guardias    Guardia[]
+  novedades   Novedad[]
+  partes      ParteIntervencion[]
+  cuarteleros CuarteleroExterno[]
 
   @@map("destacamento")
 }
@@ -107,6 +108,8 @@ model Usuario {
   novedades       Novedad[]
   partesCreados   ParteIntervencion[]   @relation("ParteCreador")
   partesCerrados  ParteIntervencion[]   @relation("ParteCerrador")
+  partesAdjuntos    ParteAdjunto[]
+  novedadesAdjuntos NovedadAdjunto[]
 
   @@index([destacamentoId])
   @@map("usuario")
@@ -252,11 +255,16 @@ model Guardia {
   destacamentoId   String
   tipo             TipoGuardia
   fecha            DateTime // día de la guardia (la hora se deriva del tipo)
+  // Nombre libre del cuartelero (compat.: guardias viejas sin catálogo). Cuando
+  // se elige del catálogo se completa `cuarteleroId`; `cuarteleroNombre` puede
+  // quedar como snapshot del nombre al momento de armar la guardia.
   cuarteleroNombre String? // solo para CUARTELERO (externo, sin usuario en el MVP)
+  cuarteleroId     String? // referencia al catálogo CuarteleroExterno (opcional)
   notas            String?
   createdAt        DateTime    @default(now())
 
   destacamento  Destacamento          @relation(fields: [destacamentoId], references: [id])
+  cuartelero    CuarteleroExterno?    @relation(fields: [cuarteleroId], references: [id])
   participantes GuardiaParticipante[]
   intercambios  IntercambioGuardia[]
   fichadas      Fichada[]
@@ -347,8 +355,9 @@ model Novedad {
   texto          String
   createdAt      DateTime    @default(now())
 
-  destacamento Destacamento @relation(fields: [destacamentoId], references: [id])
-  autor        Usuario      @relation(fields: [autorId], references: [id])
+  destacamento Destacamento     @relation(fields: [destacamentoId], references: [id])
+  autor        Usuario          @relation(fields: [autorId], references: [id])
+  adjuntos     NovedadAdjunto[]
 
   @@index([destacamentoId, createdAt])
   @@map("novedad")
@@ -416,10 +425,64 @@ model ParteIntervencion {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  destacamento Destacamento @relation(fields: [destacamentoId], references: [id])
-  creador      Usuario      @relation("ParteCreador", fields: [creadorId], references: [id])
-  cerradoPor   Usuario?     @relation("ParteCerrador", fields: [cerradoPorId], references: [id])
+  destacamento Destacamento   @relation(fields: [destacamentoId], references: [id])
+  creador      Usuario        @relation("ParteCreador", fields: [creadorId], references: [id])
+  cerradoPor   Usuario?       @relation("ParteCerrador", fields: [cerradoPorId], references: [id])
+  adjuntos     ParteAdjunto[]
 
   @@index([destacamentoId])
   @@map("parte_intervencion")
+}
+
+// ---------------------------------------------------------------------------
+// Adjuntos y catálogos agregados en el batch 1 (ver docs/PLAN-ARRANQUE.md).
+// ---------------------------------------------------------------------------
+
+/// Evidencia fotográfica de un parte (path en el bucket privado "partes").
+/// Se puede subir mientras el parte está ABIERTO (PRD §4.7).
+model ParteAdjunto {
+  id          String   @id @default(cuid())
+  parteId     String
+  path        String
+  subidoPorId String
+  createdAt   DateTime @default(now())
+
+  parte     ParteIntervencion @relation(fields: [parteId], references: [id], onDelete: Cascade)
+  subidoPor Usuario           @relation(fields: [subidoPorId], references: [id])
+
+  @@index([parteId])
+  @@map("parte_adjunto")
+}
+
+/// Foto adjunta a una novedad manual (path en el bucket privado "novedades").
+/// Adjuntos opcionales del cuaderno (PRD §4.6).
+model NovedadAdjunto {
+  id          String   @id @default(cuid())
+  novedadId   String
+  path        String
+  subidoPorId String
+  createdAt   DateTime @default(now())
+
+  novedad   Novedad @relation(fields: [novedadId], references: [id], onDelete: Cascade)
+  subidoPor Usuario @relation(fields: [subidoPorId], references: [id])
+
+  @@index([novedadId])
+  @@map("novedad_adjunto")
+}
+
+/// Catálogo de cuarteleros externos del destacamento (PRD §4.4 / §6). En el MVP
+/// no son usuarios: son nombres de referencia reutilizables al armar guardias.
+model CuarteleroExterno {
+  id             String   @id @default(cuid())
+  destacamentoId String
+  nombre         String
+  activo         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  destacamento Destacamento @relation(fields: [destacamentoId], references: [id])
+  guardias     Guardia[]
+
+  @@unique([destacamentoId, nombre])
+  @@index([destacamentoId])
+  @@map("cuartelero_externo")
 }
