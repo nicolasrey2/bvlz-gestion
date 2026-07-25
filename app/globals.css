@@ -28,8 +28,8 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Organigrama: árbol con conectores CSS (técnica ul/li). Color de línea por
-   tema. Se usa en app/destacamento (componente Organigrama).
+   Organigrama: árbol VERTICAL indentado con conectores CSS (mobile-first).
+   Color de línea por tema. Usado en app/destacamento (componente Organigrama).
 --------------------------------------------------------------------------- */
 :root {
   --org-line: #d4d4d8; /* zinc-300 */
@@ -39,67 +39,42 @@ body {
 }
 
 .organigrama ul {
-  display: flex;
-  justify-content: center;
-  position: relative;
-  padding-top: 22px;
-  margin: 0;
-  padding-left: 0;
   list-style: none;
+  margin: 0;
+  padding: 0;
 }
 .organigrama li {
-  list-style: none;
   position: relative;
-  padding: 22px 10px 0;
-  text-align: center;
 }
-/* conectores horizontales hacia el nodo padre */
-.organigrama li::before,
-.organigrama li::after {
+/* niveles anidados: indentados con conectores */
+.organigrama ul ul {
+  margin-left: 12px;
+}
+.organigrama ul ul > li {
+  padding-left: 22px;
+}
+/* línea vertical por el borde izquierdo de cada hijo */
+.organigrama ul ul > li::before {
   content: "";
   position: absolute;
+  left: 0;
   top: 0;
-  right: 50%;
-  width: 50%;
-  height: 22px;
-  border-top: 2px solid var(--org-line);
+  bottom: 0;
+  width: 2px;
+  background: var(--org-line);
 }
-.organigrama li::after {
-  right: auto;
-  left: 50%;
-  border-left: 2px solid var(--org-line);
-}
-/* nodo único: sin líneas horizontales */
-.organigrama li:only-child::before,
-.organigrama li:only-child::after {
-  display: none;
-}
-/* extremos: recortar la mitad sobrante y redondear la curva */
-.organigrama li:first-child::before,
-.organigrama li:last-child::after {
-  border: 0 none;
-}
-.organigrama li:last-child::before {
-  border-right: 2px solid var(--org-line);
-  border-radius: 0 6px 0 0;
-}
-.organigrama li:first-child::after {
-  border-radius: 6px 0 0 0;
-}
-/* línea vertical que baja desde cada nivel anidado */
-.organigrama ul ul::before {
+/* stub horizontal que entra al nodo */
+.organigrama ul ul > li::after {
   content: "";
   position: absolute;
-  top: 0;
-  left: 50%;
-  width: 0;
-  height: 22px;
-  border-left: 2px solid var(--org-line);
+  left: 0;
+  top: 16px;
+  width: 16px;
+  height: 2px;
+  background: var(--org-line);
 }
-/* la raíz no tiene línea por encima */
-.organigrama > ul {
-  padding-top: 0;
-}
-.organigrama > ul > li {
-  padding-top: 0;
+/* el último hijo corta la vertical justo debajo del stub */
+.organigrama ul ul > li:last-child::before {
+  bottom: auto;
+  height: 17px;
 }
