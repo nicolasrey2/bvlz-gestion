@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
-import { esConduccion } from "@/lib/permisos";
+import { puedeEditarParte } from "@/lib/permisos";
 import { NOMBRE_TIPO_SINIESTRO, NOMBRE_ESTADO_PARTE } from "@/lib/dominio";
 import { cerrarParte } from "@/server/partes";
 import { BotonAccion } from "@/components/BotonAccion";
@@ -17,6 +17,7 @@ import {
   type SeccionParte,
 } from "@/lib/partesDetalle";
 import { leerPersonal, type PersonaParte } from "@/lib/partePersonal";
+import type { ParteIntervencion } from "@/generated/prisma/client";
 
 /// Una de las dos tablas de personal del parte (P6). No se dibuja si está
 /// vacía: un parte sin gente en el cuartel no debería mostrar el título.
@@ -40,8 +41,8 @@ function ListaPersonal({
             {p.movil && (
               <span className="text-xs text-zinc-500">móvil {p.movil}</span>
             )}
-            {p.guardia && <Etiqueta>G</Etiqueta>}
-            {p.bp && <Etiqueta>BP</Etiqueta>}
+            {p.guardia && <Etiqueta titulo="Estaba de guardia">G</Etiqueta>}
+            {p.bp && <Etiqueta titulo="Avisado por busca persona">BP</Etiqueta>}
           </li>
         ))}
       </ul>
@@ -49,13 +50,34 @@ function ListaPersonal({
   );
 }
 
-function Etiqueta({ children }: { children: ReactNode }) {
+/// Etiqueta corta de una columna del formulario (G, BP). `titulo` explica la
+/// sigla al pasar el mouse / con lector de pantalla: "BP" no se entiende solo.
+function Etiqueta({ children, titulo }: { children: ReactNode; titulo: string }) {
   return (
-    <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+    <span
+      title={titulo}
+      className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+    >
       {children}
     </span>
   );
 }
+
+/// Los 7 tiempos del formulario oficial, en el orden en que se imprimen. Como
+/// mapa y no como líneas sueltas para que la ficha no repita siete veces el
+/// mismo `&&`.
+const TIEMPOS = [
+  { campo: "horaAviso", etiqueta: "Aviso" },
+  { campo: "horaLlegada", etiqueta: "Llegada" },
+  { campo: "horaCircunscripto", etiqueta: "Circunscripto" },
+  { campo: "horaDominado", etiqueta: "Dominado" },
+  { campo: "horaExtinguido", etiqueta: "Extinguido" },
+  { campo: "horaFinalizacion", etiqueta: "Finalización" },
+  { campo: "horaRegreso", etiqueta: "Regreso" },
+] as const satisfies ReadonlyArray<{
+  campo: keyof ParteIntervencion;
+  etiqueta: string;
+}>;
 
 /// Clases de color del badge de estado (ABIERTO ámbar, CERRADO verde).
 const COLOR_ESTADO_PARTE = {
@@ -85,9 +107,9 @@ export default async function DetallePartePage({
   const detalle = leerDetalle(parte.detalle);
   const secciones = seccionesPresentes(detalle);
 
-  const puedeCerrar =
-    parte.estado === "ABIERTO" &&
-    (parte.creadorId === ctx.usuarioId || esConduccion(ctx));
+  // Editar y cerrar tienen la misma regla: creador o conducción, con el parte
+  // abierto.
+  const puedeEditar = puedeEditarParte(ctx, parte);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-6">
@@ -110,20 +132,31 @@ export default async function DetallePartePage({
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
         <dl className="flex flex-col gap-2 text-sm">
           {parte.servicioNro && <Dato titulo="N° de servicio" valor={parte.servicioNro} />}
+          {parte.rubaNro && <Dato titulo="RUBA N°" valor={parte.rubaNro} />}
+          {parte.certificadoNro && (
+            <Dato titulo="Certificado" valor={parte.certificadoNro} />
+          )}
+          {parte.informeNro && <Dato titulo="Informe N°" valor={parte.informeNro} />}
           {parte.cuartel && <Dato titulo="Cuartel" valor={parte.cuartel} />}
           {parte.fecha && <Dato titulo="Fecha" valor={fmtFechaDia(parte.fecha)} />}
           {parte.objeto && <Dato titulo="Objeto" valor={parte.objeto} />}
           {parte.direccion && <Dato titulo="Dirección" valor={parte.direccion} />}
           {parte.localidad && <Dato titulo="Localidad" valor={parte.localidad} />}
-          {(parte.horaAviso || parte.horaLlegada || parte.horaRegreso) && (
+          {parte.jurisdiccionPolicial && (
+            <Dato titulo="Jurisdicción policial" valor={parte.jurisdiccionPolicial} />
+          )}
+          {parte.pedidoEfectuado && (
+            <Dato titulo="Pedido efectuado" valor={parte.pedidoEfectuado} />
+          )}
+          {parte.ubicacion && <Dato titulo="Ubicación" valor={parte.ubicacion} />}
+          {parte.panorama && <Dato titulo="Panorama" valor={parte.panorama} />}
+          {/* Los 7 tiempos del formulario oficial, en su orden; se omiten los
+              que todavía no se cargaron. */}
+          {TIEMPOS.some(({ campo }) => parte[campo]) && (
             <Dato
               titulo="Tiempos"
-              valor={[
-                parte.horaAviso && `Aviso ${parte.horaAviso}`,
-                parte.horaLlegada && `Llegada ${parte.horaLlegada}`,
-                parte.horaRegreso && `Regreso ${parte.horaRegreso}`,
-              ]
-                .filter(Boolean)
+              valor={TIEMPOS.filter(({ campo }) => parte[campo])
+                .map(({ campo, etiqueta }) => `${etiqueta} ${parte[campo]}`)
                 .join(" · ")}
             />
           )}
@@ -179,7 +212,10 @@ export default async function DetallePartePage({
         </section>
       ))}
 
-      {(parte.datosTomadosPor || parte.oficialActuante || parte.jefeCuerpo) && (
+      {(parte.datosTomadosPor ||
+        parte.oficialActuante ||
+        parte.dptoTecnico ||
+        parte.jefeCuerpo) && (
         <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
           <h2 className="mb-2 text-sm font-semibold text-zinc-500">Firmas</h2>
           <dl className="flex flex-col gap-2 text-sm">
@@ -189,12 +225,22 @@ export default async function DetallePartePage({
             {parte.oficialActuante && (
               <Dato titulo="Oficial actuante" valor={parte.oficialActuante} />
             )}
+            {parte.dptoTecnico && <Dato titulo="Dpto. Técnico" valor={parte.dptoTecnico} />}
             {parte.jefeCuerpo && <Dato titulo="Jefe del Cuerpo" valor={parte.jefeCuerpo} />}
           </dl>
         </section>
       )}
 
       <section className="flex flex-col gap-2">
+        {puedeEditar && (
+          <Link
+            href={`/partes/${parte.id}/editar`}
+            className="w-full rounded-lg bg-zinc-800 px-4 py-2.5 text-center text-base font-semibold text-white dark:bg-zinc-200 dark:text-zinc-900"
+          >
+            Editar parte
+          </Link>
+        )}
+
         <a
           href={`/partes/${parte.id}/pdf`}
           target="_blank"
@@ -204,7 +250,7 @@ export default async function DetallePartePage({
           Descargar PDF
         </a>
 
-        {puedeCerrar && (
+        {puedeEditar && (
           <form action={cerrarParte}>
             <input type="hidden" name="parteId" value={parte.id} />
             <BotonAccion
@@ -265,13 +311,16 @@ const RENDER_SECCION: Record<SeccionParte, (detalle: DetalleParte) => ReactNode>
           {v.conductor && <Dato titulo="Conductor/a" valor={v.conductor} />}
           {v.edad && <Dato titulo="Edad" valor={v.edad} />}
           {v.domicilio && <Dato titulo="Domicilio" valor={v.domicilio} />}
+          {v.registro && <Dato titulo="N° y origen del registro" valor={v.registro} />}
           {v.dominio && <Dato titulo="Dominio" valor={v.dominio} />}
+          {v.rodado && <Dato titulo="Rodado tipo" valor={v.rodado} />}
           {(v.marca || v.modelo || v.anio) && (
             <Dato
               titulo="Vehículo"
               valor={[v.marca, v.modelo, v.anio].filter(Boolean).join(" · ")}
             />
           )}
+          {v.otrosDatos && <Dato titulo="Otros datos" valor={v.otrosDatos} />}
           {(v.aseguradora || v.poliza) && (
             <Dato
               titulo="Seguro"
@@ -304,6 +353,7 @@ const RENDER_SECCION: Record<SeccionParte, (detalle: DetalleParte) => ReactNode>
       {d.inmueble?.instGas && <Dato titulo="Tipo inst. gas" valor={d.inmueble.instGas} />}
       {d.inmueble?.ambientes && <Dato titulo="Cant. de ambientes" valor={d.inmueble.ambientes} />}
       {d.inmueble?.pisos && <Dato titulo="Cant. de pisos" valor={d.inmueble.pisos} />}
+      {d.inmueble?.numeroPiso && <Dato titulo="N° de piso" valor={d.inmueble.numeroPiso} />}
       {boolTexto(d.inmueble?.nichoHidrante) && (
         <Dato titulo="¿Había nicho hidrante?" valor={boolTexto(d.inmueble?.nichoHidrante)!} />
       )}
@@ -321,6 +371,18 @@ const RENDER_SECCION: Record<SeccionParte, (detalle: DetalleParte) => ReactNode>
       {d.datosComplementarios?.dni && <Dato titulo="DNI" valor={d.datosComplementarios.dni} />}
       {d.datosComplementarios?.domicilio && (
         <Dato titulo="Domicilio" valor={d.datosComplementarios.domicilio} />
+      )}
+      {d.datosComplementarios?.arrendatario && (
+        <Dato
+          titulo="Arrendatario/a"
+          valor={[
+            d.datosComplementarios.arrendatario,
+            d.datosComplementarios.dniArrendatario &&
+              `DNI ${d.datosComplementarios.dniArrendatario}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        />
       )}
       {(d.datosComplementarios?.aseguradora || d.datosComplementarios?.poliza) && (
         <Dato

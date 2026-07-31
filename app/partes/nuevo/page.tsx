@@ -1,28 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { puedeCrearParte } from "@/lib/permisos";
-import { nombreRango } from "@/lib/dominio";
-import { FormNuevoParte } from "@/components/FormNuevoParte";
+import { crearParte } from "@/server/partes";
+import { sugerenciasDePersonal } from "@/server/partePersonalSugerencias";
+import { FormParte } from "@/components/FormParte";
 
 export default async function NuevoPartePage() {
   const ctx = await getContextoAuth();
   if (!ctx) redirect("/login");
   if (!puedeCrearParte(ctx)) redirect("/");
 
-  // Personal activo del destacamento, para autocompletar la carga del parte
-  // (P6). Se arma "Jerarquía Apellido" —el formato de la columna del
-  // formulario oficial— para que la sugerencia se pueda usar tal cual.
-  const personal = await prisma.usuario.findMany({
-    where: { destacamentoId: ctx.destacamentoId, activo: true },
-    orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
-    select: { id: true, apellido: true, rango: true },
-  });
-  const sugerenciasPersonal = personal.map((p) => ({
-    usuarioId: p.id,
-    nombre: `${nombreRango(p.rango)} ${p.apellido}`,
-  }));
+  const sugerenciasPersonal = await sugerenciasDePersonal(ctx.destacamentoId);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-4 p-6">
@@ -33,8 +22,12 @@ export default async function NuevoPartePage() {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Nuevo parte de intervención
         </h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Se puede abrir con lo que se sepa ahora: mientras el parte esté
+          abierto se puede seguir editando.
+        </p>
       </header>
-      <FormNuevoParte sugerenciasPersonal={sugerenciasPersonal} />
+      <FormParte accion={crearParte} sugerenciasPersonal={sugerenciasPersonal} />
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import { PDFCheckBox, PDFDropdown, PDFTextField, type PDFForm } from "pdf-lib";
+import { fmtFechaDia } from "./fechas";
 import { leerDetalle, ORGANISMOS_CONCURRENTES } from "./partesDetalle";
 import {
   CUPO_CONCURRIO,
@@ -26,13 +27,24 @@ import {
 /// se parsea acá con `leerDetalle`.
 export type ParteParaFormulario = {
   servicioNro: string | null;
+  rubaNro: string | null;
+  certificadoNro: string | null;
+  informeNro: string | null;
   cuartel: string | null;
   fecha: Date | null;
   objeto: string | null;
   direccion: string | null;
   localidad: string | null;
+  jurisdiccionPolicial: string | null;
+  pedidoEfectuado: string | null;
+  ubicacion: string | null;
+  panorama: string | null;
   horaAviso: string | null;
   horaLlegada: string | null;
+  horaCircunscripto: string | null;
+  horaDominado: string | null;
+  horaExtinguido: string | null;
+  horaFinalizacion: string | null;
   horaRegreso: string | null;
   dotaciones: number | null;
   bomberos: number | null;
@@ -41,6 +53,7 @@ export type ParteParaFormulario = {
   personal: PersonalParte;
   datosTomadosPor: string | null;
   oficialActuante: string | null;
+  dptoTecnico: string | null;
   jefeCuerpo: string | null;
   detalle?: unknown;
 };
@@ -50,17 +63,29 @@ const CAMPO = {
   hoja: "nº",
   hojasTotales: "hojas totales",
   servicioNro: "Servicio nº",
+  rubaNro: "RUBA nº",
+  certificadoNro: "Certificado nº",
+  informeNro: "Informe nº",
   fecha: "Fecha",
   oficialActuante: "Oficial actuante",
   direccion: "Dirección",
+  pedidoEfectuado: "Pedido efectuado",
+  // Rotulado "Ubicación" en el formulario impreso; el nombre interno del campo
+  // describe lo que se espera (coordenadas o un link).
+  ubicacion: "Descripción del lugar o link a Google Maps",
   horaAviso: "Hora recepción",
   horaLlegada: "Hora llegada",
+  horaCircunscripto: "Hora circunscripto",
+  horaDominado: "Hora dominado",
+  horaExtinguido: "Hora extinguido",
+  horaFinalizacion: "Hora finalización",
   horaRegreso: "Hora regreso",
   dotaciones: "Dotac",
   bomberos: "Bros./as",
   unidades: "Ingresar los números separados por comas",
   descripcion: "Descriprción de las tareas",
   datosTomadosPor: "Datos tomados por",
+  dptoTecnico: "Dpto. Técnico",
   firmaOficial: "Firma oficial actuante",
   firmaJefe: "Firma Jefe del Cuerpo",
   // Análisis del incendio
@@ -75,10 +100,13 @@ const CAMPO = {
   instGas: "Tipo de instalación de gas",
   ambientes: "Cantidad de ambientes",
   pisos: "Cantidad de pisos",
+  numeroPiso: "Número de piso",
   // Datos complementarios
   dcPropietario: "Propietario/a del inmueble",
   dcDni: "DNI propietario/a",
   dcDomicilio: "Domicilio propietario/a del inmueble",
+  dcArrendatario: "Arrendatario/a",
+  dcDniArrendatario: "DNI arrendatario/a",
   dcAseguradora: "Compañía aseguradora",
   dcPoliza: "Nº de póliza",
   dcRazonSocial: "Razón social",
@@ -103,6 +131,8 @@ const LISTA = {
   cuartel: "Cuartel",
   localidad: "Localidad",
   objeto: "Objeto",
+  jurisdiccionPolicial: "Jurisdicción policial",
+  panorama: "Panorama",
   condicionesClimaticas: "Condiciones climáticas",
   nichoHidrante: "Nicho hidrante",
   extintor: "Extintor",
@@ -116,8 +146,8 @@ const VICTIMAS = ["0.0", "0.1", "1.0", "1.1"] as const;
 const VICTIMAS_FATALES = ["0", "1"] as const;
 
 /// Columnas de la tabla CONCURRENTES. La fila es el índice del organismo en
-/// `ORGANISMOS_CONCURRENTES` (el formulario imprime una fila por organismo, en
-/// ese orden; la sexta es un segundo "Otros" que queda para completar a mano).
+/// `ORGANISMOS_CONCURRENTES`: el formulario imprime una fila por organismo, en
+/// ese orden, incluida la segunda fila "Otros".
 const COLUMNA_CONCURRENTE = {
   numero: "Nº móvil policial",
   aCargo: "A cargo - Policía",
@@ -207,9 +237,10 @@ function marcar(ctx: Contexto, campo: string) {
 type TablaPersonal = {
   filas: number;
   nombre: (columna: number, fila: number) => string;
-  /// Sólo la tabla de "concurrió" tiene columna Ch. (nº de móvil).
+  /// Sólo la tabla de "concurrió" tiene columna Ch. (chofer: nº de móvil).
   movil: ((columna: number, fila: number) => string) | null;
   guardia: (columna: number, fila: number) => string;
+  /// Columna BP: busca persona (ver `lib/partePersonal.ts`).
   bp: (columna: number, fila: number) => string;
 };
 
@@ -232,15 +263,14 @@ function llenarTablaPersonal(
   });
 }
 
-/// Fecha en el formato del formulario (dd/mm/aaaa), en hora argentina para que
-/// un parte cargado cerca de medianoche no se corra de día.
+/// Fecha en el formato del formulario (dd/mm/aaaa).
+///
+/// `ParteIntervencion.fecha` es una fecha "día", no un instante: se guarda como
+/// medianoche UTC (ver `lib/fechas.ts`). Por eso se formatea en **UTC** igual
+/// que en la ficha del parte; formatearla en hora argentina restaba un día y el
+/// PDF salía fechado el día anterior.
 function fmtFechaParte(fecha: Date): string {
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(fecha);
+  return fmtFechaDia(fecha);
 }
 
 /// Deja la plantilla en blanco. Es imprescindible: el PDF oficial que nos
@@ -268,15 +298,27 @@ export function llenarFormularioParte(
   texto(ctx, CAMPO.hoja, "1");
   texto(ctx, CAMPO.hojasTotales, "1");
   texto(ctx, CAMPO.servicioNro, parte.servicioNro);
+  texto(ctx, CAMPO.rubaNro, parte.rubaNro);
+  texto(ctx, CAMPO.certificadoNro, parte.certificadoNro);
+  texto(ctx, CAMPO.informeNro, parte.informeNro);
   if (parte.fecha) texto(ctx, CAMPO.fecha, fmtFechaParte(parte.fecha));
   lista(ctx, LISTA.cuartel, parte.cuartel);
   lista(ctx, LISTA.objeto, parte.objeto);
   texto(ctx, CAMPO.oficialActuante, parte.oficialActuante);
   texto(ctx, CAMPO.direccion, parte.direccion);
   lista(ctx, LISTA.localidad, parte.localidad);
+  lista(ctx, LISTA.jurisdiccionPolicial, parte.jurisdiccionPolicial);
+  texto(ctx, CAMPO.pedidoEfectuado, parte.pedidoEfectuado);
+  texto(ctx, CAMPO.ubicacion, parte.ubicacion);
+  lista(ctx, LISTA.panorama, parte.panorama);
 
+  // Tiempos, en el orden del formulario: del aviso al regreso.
   texto(ctx, CAMPO.horaAviso, parte.horaAviso);
   texto(ctx, CAMPO.horaLlegada, parte.horaLlegada);
+  texto(ctx, CAMPO.horaCircunscripto, parte.horaCircunscripto);
+  texto(ctx, CAMPO.horaDominado, parte.horaDominado);
+  texto(ctx, CAMPO.horaExtinguido, parte.horaExtinguido);
+  texto(ctx, CAMPO.horaFinalizacion, parte.horaFinalizacion);
   texto(ctx, CAMPO.horaRegreso, parte.horaRegreso);
 
   texto(ctx, CAMPO.dotaciones, parte.dotaciones);
@@ -311,9 +353,12 @@ export function llenarFormularioParte(
     texto(ctx, `Edad conductor/a veh. 1.${n}`, veh.edad);
     texto(ctx, `Domicilio de conductor/a del vehículo 1.${n}`, veh.domicilio);
     texto(ctx, `Chapa vehículo 1.${n}`, veh.dominio);
+    texto(ctx, `Nº y origen del registro vehículo 1.${n}`, veh.registro);
+    lista(ctx, `Rodado tipo 1.${n}`, veh.rodado);
     texto(ctx, `Marca veh. 1.${n}`, veh.marca);
     texto(ctx, `Modelo vehículo 1.${n}`, veh.modelo);
     texto(ctx, `Año vehículo 1.${n}`, veh.anio);
+    texto(ctx, `Otros datos vehículo 1.${n}`, veh.otrosDatos);
     texto(ctx, `Compañía aseguradora vehículo 1.${n}`, veh.aseguradora);
     texto(ctx, `Póliza vehículo 1.${n}`, veh.poliza);
   });
@@ -336,6 +381,7 @@ export function llenarFormularioParte(
     texto(ctx, CAMPO.instGas, inmueble.instGas);
     texto(ctx, CAMPO.ambientes, inmueble.ambientes);
     texto(ctx, CAMPO.pisos, inmueble.pisos);
+    texto(ctx, CAMPO.numeroPiso, inmueble.numeroPiso);
     listaSiNo(ctx, LISTA.nichoHidrante, inmueble.nichoHidrante);
     listaSiNo(ctx, LISTA.extintor, inmueble.extintor);
   }
@@ -346,6 +392,8 @@ export function llenarFormularioParte(
     texto(ctx, CAMPO.dcPropietario, dc.propietario);
     texto(ctx, CAMPO.dcDni, dc.dni);
     texto(ctx, CAMPO.dcDomicilio, dc.domicilio);
+    texto(ctx, CAMPO.dcArrendatario, dc.arrendatario);
+    texto(ctx, CAMPO.dcDniArrendatario, dc.dniArrendatario);
     texto(ctx, CAMPO.dcAseguradora, dc.aseguradora);
     texto(ctx, CAMPO.dcPoliza, dc.poliza);
     texto(ctx, CAMPO.dcRazonSocial, dc.razonSocial);
@@ -398,6 +446,7 @@ export function llenarFormularioParte(
 
   // --- Firmas ---
   texto(ctx, CAMPO.datosTomadosPor, parte.datosTomadosPor);
+  texto(ctx, CAMPO.dptoTecnico, parte.dptoTecnico);
   texto(ctx, CAMPO.firmaOficial, parte.oficialActuante);
   texto(ctx, CAMPO.firmaJefe, parte.jefeCuerpo);
 

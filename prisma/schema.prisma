@@ -51,16 +51,16 @@ enum RolTipo {
 /// Entidad raíz. El MVP opera con un solo destacamento (Llavallol), pero el
 /// modelo está preparado para multi-destacamento desde el inicio.
 model Destacamento {
-  id        String   @id @default(cuid())
-  nombre    String
-  cuartel   String? // ej. "Llavallol"
+  id            String   @id @default(cuid())
+  nombre        String
+  cuartel       String? // ej. "Llavallol"
   // Ubicación del cuartel para el geo-fichado (suave). La geo se activa cuando
   // latitud/longitud están cargadas.
   latitud       Float?
   longitud      Float?
-  radioFichadoM Int     @default(200)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  radioFichadoM Int      @default(200)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   usuarios    Usuario[]
   areas       Area[]
@@ -96,18 +96,18 @@ model Usuario {
   activacionTokenHash String?
   activacionExpira    DateTime?
 
-  destacamento    Destacamento    @relation(fields: [destacamentoId], references: [id])
-  asignaciones    AsignacionRol[]
-  tareasCreadas   Tarea[]         @relation("TareaCreador")
-  tareasAprobadas Tarea[]         @relation("TareaAprobador")
-  tareasAsignadas TareaAsignado[]
-  adjuntosSubidos TareaAdjunto[]
-  comentarios     TareaComentario[]
-  guardias        GuardiaParticipante[]
-  fichadas        Fichada[]
-  novedades       Novedad[]
-  partesCreados   ParteIntervencion[]   @relation("ParteCreador")
-  partesCerrados  ParteIntervencion[]   @relation("ParteCerrador")
+  destacamento      Destacamento          @relation(fields: [destacamentoId], references: [id])
+  asignaciones      AsignacionRol[]
+  tareasCreadas     Tarea[]               @relation("TareaCreador")
+  tareasAprobadas   Tarea[]               @relation("TareaAprobador")
+  tareasAsignadas   TareaAsignado[]
+  adjuntosSubidos   TareaAdjunto[]
+  comentarios       TareaComentario[]
+  guardias          GuardiaParticipante[]
+  fichadas          Fichada[]
+  novedades         Novedad[]
+  partesCreados     ParteIntervencion[]   @relation("ParteCreador")
+  partesCerrados    ParteIntervencion[]   @relation("ParteCerrador")
   partesAdjuntos    ParteAdjunto[]
   novedadesAdjuntos NovedadAdjunto[]
 
@@ -184,10 +184,10 @@ model Tarea {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  destacamento Destacamento    @relation(fields: [destacamentoId], references: [id])
-  area         Area?           @relation(fields: [areaId], references: [id])
-  creador      Usuario         @relation("TareaCreador", fields: [creadorId], references: [id])
-  aprobador    Usuario?        @relation("TareaAprobador", fields: [aprobadorId], references: [id])
+  destacamento Destacamento      @relation(fields: [destacamentoId], references: [id])
+  area         Area?             @relation(fields: [areaId], references: [id])
+  creador      Usuario           @relation("TareaCreador", fields: [creadorId], references: [id])
+  aprobador    Usuario?          @relation("TareaAprobador", fields: [aprobadorId], references: [id])
   asignados    TareaAsignado[]
   adjuntos     TareaAdjunto[]
   comentarios  TareaComentario[]
@@ -219,7 +219,7 @@ model TareaAdjunto {
   subidoPorId String
   createdAt   DateTime @default(now())
 
-  tarea    Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  tarea     Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
   subidoPor Usuario @relation(fields: [subidoPorId], references: [id])
 
   @@index([tareaId])
@@ -314,18 +314,18 @@ enum TipoFichada {
 }
 
 model Fichada {
-  id             String      @id @default(cuid())
-  usuarioId      String
-  guardiaId      String? // guardia asociada (si le tocaba)
-  destacamentoId String
-  tipo           TipoFichada
-  momento        DateTime    @default(now())
-  noProgramada   Boolean     @default(false) // fichó una guardia que no le tocaba
+  id                  String      @id @default(cuid())
+  usuarioId           String
+  guardiaId           String? // guardia asociada (si le tocaba)
+  destacamentoId      String
+  tipo                TipoFichada
+  momento             DateTime    @default(now())
+  noProgramada        Boolean     @default(false) // fichó una guardia que no le tocaba
   // Geo-fichado (suave): dónde fichó y si estaba dentro del radio del cuartel.
   latitud             Float?
   longitud            Float?
   distanciaM          Float?
-  ubicacionVerificada Boolean @default(false)
+  ubicacionVerificada Boolean     @default(false)
 
   usuario Usuario  @relation(fields: [usuarioId], references: [id])
   guardia Guardia? @relation(fields: [guardiaId], references: [id])
@@ -389,34 +389,50 @@ model ParteIntervencion {
   estado         EstadoParte   @default(ABIERTO)
   tipoSiniestro  TipoSiniestro
 
-  // Encabezado
-  servicioNro String?
-  cuartel     String?
-  fecha       DateTime?
-  objeto      String?
-  direccion   String?
-  localidad   String?
+  // Encabezado. `objeto`, `cuartel`, `localidad`, `jurisdiccionPolicial` y
+  // `panorama` son listas cerradas en el formulario oficial: las opciones
+  // válidas viven en `lib/parteOpciones.ts`. Se guardan como texto (no enum)
+  // porque son catálogos del DTO 3, no del dominio: si cambian una opción, no
+  // queremos una migración.
+  servicioNro          String?
+  rubaNro              String?
+  certificadoNro       String?
+  informeNro           String?
+  cuartel              String?
+  fecha                DateTime?
+  objeto               String?
+  direccion            String?
+  localidad            String?
+  jurisdiccionPolicial String?
+  pedidoEfectuado      String? // "P. efectuado": teléfono/contacto de quien pidió
+  ubicacion            String? // coordenadas o link a Google Maps
+  panorama             String?
 
-  // Tiempos (texto HH:MM)
-  horaAviso   String?
-  horaLlegada String?
-  horaRegreso String?
+  // Tiempos (texto HH:MM), en el orden del formulario oficial.
+  horaAviso         String?
+  horaLlegada       String?
+  horaCircunscripto String?
+  horaDominado      String?
+  horaExtinguido    String?
+  horaFinalizacion  String?
+  horaRegreso       String?
 
   // Recursos
   dotaciones Int?
   bomberos   Int?
-  unidades   String?
+  unidades   String? // números de móvil separados por comas ("16, 22")
 
   descripcion String? // descripción de las tareas
 
   // Secciones condicionales/extensibles (vehículos, inmueble, víctimas, etc.)
   detalle  Json?
-  // Personal que concurrió / en el cuartel: [{ jerarquia, apellido }]
+  // Personal que concurrió / en el cuartel: ver `lib/partePersonal.ts`
   personal Json?
 
   // Firmas
   datosTomadosPor String?
   oficialActuante String?
+  dptoTecnico     String?
   jefeCuerpo      String?
 
   creadorId    String

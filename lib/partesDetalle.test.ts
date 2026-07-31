@@ -69,6 +69,39 @@ describe("parsearDetalleFormData", () => {
     expect(detalle.victimas).toEqual([{ nombre: "Juan Pérez", dni: "30111222" }]);
   });
 
+  it("parsea los campos del formulario oficial que faltaban (P9)", () => {
+    const fd = new FormData();
+    fd.set("inmueble_pisos", "3"); // cuántos pisos tiene el inmueble
+    fd.set("inmueble_numeroPiso", "2"); // en qué piso ocurrió: es otro dato
+    fd.set("dc_arrendatario", "Ledesma, Carlos");
+    fd.set("dc_dniArrendatario", "31555777");
+
+    const detalle = parsearDetalleFormData(fd, "INCENDIO" as TipoSiniestro);
+
+    expect(detalle.inmueble).toEqual({ pisos: "3", numeroPiso: "2" });
+    expect(detalle.datosComplementarios).toEqual({
+      arrendatario: "Ledesma, Carlos",
+      dniArrendatario: "31555777",
+    });
+  });
+
+  it("parsea registro, rodado y otros datos del vehículo", () => {
+    const fd = new FormData();
+    fd.set("veh1_registro", "12345678 - Lomas de Zamora");
+    fd.set("veh1_rodado", "Utilitario");
+    fd.set("veh1_otrosDatos", "Baúl con herramientas");
+
+    const detalle = parsearDetalleFormData(fd, "ACCIDENTE_VIAL" as TipoSiniestro);
+
+    expect(detalle.vehiculos).toEqual([
+      {
+        registro: "12345678 - Lomas de Zamora",
+        rodado: "Utilitario",
+        otrosDatos: "Baúl con herramientas",
+      },
+    ]);
+  });
+
   it("parsea campos booleanos sí/no de inmueble", () => {
     const fd = new FormData();
     fd.set("inmueble_nichoHidrante", "si");
@@ -152,6 +185,19 @@ describe("concurrentes", () => {
   it("ignora un texto vacío de un parte viejo", () => {
     const detalle = leerDetalle({ concurrentes: { movilPolicial: "   " } });
     expect(detalle.concurrentes).toBeUndefined();
+  });
+
+  it("parsea la segunda fila 'Otros' del formulario", () => {
+    const fd = new FormData();
+    fd.set("conc_otros_observaciones", "Aguas");
+    fd.set("conc_otros2_observaciones", "Cooperativa eléctrica");
+
+    const detalle = parsearDetalleFormData(fd, "OTRO" as TipoSiniestro);
+
+    expect(detalle.concurrentes?.otros).toEqual({ observaciones: "Aguas" });
+    expect(detalle.concurrentes?.otros2).toEqual({
+      observaciones: "Cooperativa eléctrica",
+    });
   });
 
   it("deja intacto el formato nuevo al leer", () => {

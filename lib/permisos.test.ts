@@ -8,6 +8,7 @@ import {
   puedeCrearParte,
   puedeCrearTareaEnArea,
   puedeCrearTareas,
+  puedeEditarParte,
   puedeFichar,
   puedeGestionarGuardias,
   puedeGestionarUsuarios,
@@ -255,5 +256,29 @@ describe("acciones abiertas a todo el destacamento", () => {
 
   it("puedeFichar es true para todos", () => {
     for (const ctx of todos) expect(puedeFichar(ctx)).toBe(true);
+  });
+});
+
+describe("puedeEditarParte", () => {
+  const abiertoPropio = { estado: "ABIERTO", creadorId: "u1" };
+  const abiertoDeOtro = { estado: "ABIERTO", creadorId: "otro" };
+  const cerradoPropio = { estado: "CERRADO", creadorId: "u1" };
+
+  it("el creador puede editar su parte abierto", () => {
+    expect(puedeEditarParte(miembroAreaA, abiertoPropio)).toBe(true);
+  });
+
+  it("la conducción puede editar el parte de otro", () => {
+    expect(puedeEditarParte(encargadoInterno, abiertoDeOtro)).toBe(true);
+  });
+
+  it("un miembro no puede editar el parte de otro", () => {
+    expect(puedeEditarParte(miembroAreaA, abiertoDeOtro)).toBe(false);
+  });
+
+  it("nadie puede editar un parte cerrado, ni su creador", () => {
+    // El cierre es el punto en que el parte pasa a ser un registro formal.
+    expect(puedeEditarParte(miembroAreaA, cerradoPropio)).toBe(false);
+    expect(puedeEditarParte(encargadoInterno, cerradoPropio)).toBe(false);
   });
 });

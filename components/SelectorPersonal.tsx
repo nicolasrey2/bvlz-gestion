@@ -154,7 +154,7 @@ function TablaPersonal({
           <div className="flex flex-wrap items-center gap-3">
             {conMovil && (
               <label className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-                Móvil
+                Móvil que condujo (Ch.)
                 <input
                   value={persona.movil ?? ""}
                   onChange={(e) => actualizar(i, { movil: e.target.value })}
@@ -180,7 +180,7 @@ function TablaPersonal({
                 onChange={(e) => actualizar(i, { bp: e.target.checked })}
                 className="h-4 w-4"
               />
-              Brigada (BP)
+              Avisado por busca persona (BP)
             </label>
           </div>
         </div>

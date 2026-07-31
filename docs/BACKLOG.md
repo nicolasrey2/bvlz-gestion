@@ -21,6 +21,13 @@ pronto), **Media** (siguiente iteración), **Baja** (cuando se pueda).
 > "concurrentes" + logo en el PDF del parte, auth de la home más liviana, y 47
 > tests de Server Actions (→ **127 tests**). Smoke de rutas + manifest OK.
 >
+> **3º batch (cierre del módulo Partes):** **P9** (los 25 casilleros que quedaban en
+> blanco del formulario oficial: encabezado completo, las 4 horas intermedias, datos de
+> vehículo, arrendatario, `Nº de piso`, `Dpto. Técnico`, sexta fila de concurrentes) +
+> las listas cerradas del PDF como `<select>` + **S8** (editar el parte mientras está
+> abierto). De paso: **BP era "busca persona", no "brigada"**, `Ch.` es "chofer" y el
+> PDF salía fechado un día antes que la ficha (→ **248 tests**).
+>
 > **Pendiente = ops (tu mano) + futuro:** Paso 6 Supabase, DB de prod separada,
 > región/latencia, RLS y rate-limiting (dashboard/infra); notificaciones, fichado
 > por PIN/QR, cuarteleros como usuarios, service worker offline (PWA); y menores:
@@ -235,8 +242,9 @@ PRD §4.4 / §6. Hoy el nombre del cuartelero se tipea a mano en cada guardia
 ### P6 — Completar el parte oficial (v2) 🟡 · hecho *(2026-07-30)*
 > **Resuelto.** Las dos simplificaciones de la v1 quedaron estructuradas:
 > - **Personal** (`lib/partePersonal.ts`, nuevo): `PersonaParte` con nombre, `movil`
->   (columna Ch.), `guardia` (G) y `bp` (BP), separado en las dos tablas del
->   formulario — `concurrio` y `enCuartel`. Se llenan las 36 + 21 casillas.
+>   (columna Ch. = chofer), `guardia` (G) y `bp` (BP = busca persona), separado en las
+>   dos tablas del formulario — `concurrio` y `enCuartel`. Se llenan las 36 + 21
+>   casillas.
 > - **Concurrentes**: cada organismo pasó de un texto libre a una fila con las 4
 >   columnas del formulario (N°, a cargo, matrícula/legajo/DNI, observaciones).
 >
@@ -300,8 +308,8 @@ lados**: Prisma y Supabase Auth (`admin.updateUserById`).
 >   cada PDF saldría con datos ajenos en los campos que no llenamos. Hay un test que
 >   falla si esto se rompe.
 > - **Sólo se aplana (`flatten`) el parte CERRADO.** El abierto sale con los campos
->   vivos, así en el cuartel pueden completar a mano lo que el sistema todavía no
->   carga (ver lista abajo) antes de cerrarlo.
+>   vivos: es el borrador que se lleva al cuartel para corregir a mano antes de volcar
+>   los cambios en la app (`/partes/[id]/editar`, **S8**) y cerrarlo.
 > - **Listas desplegables:** se matchea contra la opción oficial ignorando
 >   mayúsculas/acentos; si el texto libre no está en la lista, se agrega y se
 >   selecciona igual — preferimos mostrar lo cargado antes que perderlo en silencio.
@@ -314,20 +322,11 @@ lados**: Prisma y Supabase Auth (`admin.updateUserById`).
 > - Herramientas: `pnpm pdf:campos` (vuelca los nombres de la plantilla) y
 >   `pnpm pdf:muestra` (genera un PDF de prueba para revisar a ojo).
 >
-> **Qué NO se llena todavía** — el formulario tiene campos que el dominio no modela.
-> Es la especificación concreta de **P6**:
-> - Encabezado: `RUBA nº`, `Certific.`, `Informe nº`, `Jurisdicc. polic.`,
->   `P. efectuado`, `Ubicación` (link a Google Maps), `Panorama`.
-> - Tiempos: `Hora circunscripto`, `dominado`, `extinguido`, `finalización`
->   (el dominio sólo tiene aviso / llegada / regreso).
-> - Concurrentes: sólo se llena la columna **Observaciones**; faltan `Nº`,
->   `A cargo` y `Matr./Leg./DNI` (el dominio guarda un texto libre por organismo).
-> - Vehículos: `Nº y origen del registro`, `Otros datos`, `Rodado tipo` (lista).
-> - Inmueble: `Nº de piso`. Datos complementarios: `Arrendatario/a` y su DNI.
-> - Personal: sólo la columna **Jerarquía y apellido**. Faltan `Ch.` (nº de móvil),
->   `G` y `BP`, y toda la tabla **PERSONAL EN EL CUARTEL** (21 casilleros).
->   `marcarPersonal()` ya está escrito y probado esperando a P6.
-> - Firma `Dpto. Técnico`.
+> **Qué NO se llenaba** — el formulario tenía 25 casilleros que el dominio no modelaba
+> (encabezado, horas intermedias, `Nº de piso`, arrendatario, datos de vehículo,
+> `Dpto. Técnico`, la sexta fila de concurrentes). Fue la especificación de **P9**, ya
+> hecho: hoy no queda ninguno, y hay un test que lo verifica campo por campo contra la
+> plantilla real.
 
 Texto original del relevamiento:
 Hoy `/partes/[id]/pdf` **dibuja un PDF propio** con `@react-pdf/renderer`
@@ -369,25 +368,48 @@ formulario en papel del DTO 3.
     si un nombre esperado ya no existe en la plantilla.
 - **Relación:** cierra el módulo Partes junto con **P6** (concurrentes/personal
   estructurados) y **P3** (fotos). P6 conviene **antes**: el PDF oficial pide
-  jerarquía/chapa/G/BP por separado, que es justo lo que P6 estructura.
+  jerarquía/Ch./G/BP por separado, que es justo lo que P6 estructura.
 
-### P9 — Campos del formulario oficial que el dominio no tiene 🟢 · pendiente *(alta 2026-07-30)*
-Lo último que queda para que el PDF oficial salga completo. Con **P8** y **P6** hechos,
-estos son los casilleros que siguen en blanco porque el dato no existe en el modelo.
-Es trabajo mecánico: agregar el campo, el input y una línea en `lib/parteAcroForm.ts`.
-- **Encabezado** (columnas nuevas en `ParteIntervencion`, 1 migración): `RUBA nº`,
-  `Certific.`, `Informe nº`, `Jurisdicc. polic.` (lista de 11 opciones),
-  `P. efectuado`, `Ubicación` (link a Google Maps), `Panorama` (lista N/A|1..4).
-- **Tiempos:** `Hora circunscripto`, `dominado`, `extinguido`, `finalización` — hoy
-  sólo hay aviso / llegada / regreso.
-- **Vehículos** (en `detalle`): `Nº y origen del registro`, `Otros datos`,
-  `Rodado tipo` (lista de 22 opciones).
-- **Inmueble:** `Nº de piso`. **Datos complementarios:** `Arrendatario/a` y su DNI.
-- **Firmas:** `Dpto. Técnico`.
-- La tabla de concurrentes tiene una **sexta fila "Otros"** que el dominio no usa
-  (`ORGANISMOS_CONCURRENTES` define 5); queda libre para completar a mano.
-- **Aceptación:** un parte completo llena el formulario oficial sin casilleros
-  vacíos por falta de campo.
+### P9 — Campos del formulario oficial que el dominio no tiene 🟡 · hecho *(2026-07-31)*
+> **Resuelto.** Un parte completo ya llena **los 351 campos** del formulario oficial:
+> antes quedaban 25 casilleros en blanco por falta de campo en el modelo.
+>
+> - **12 columnas nuevas** en `ParteIntervencion` (migración
+>   `20260731223203_parte_campos_formulario_oficial`, aditiva y nullable): `rubaNro`,
+>   `certificadoNro`, `informeNro`, `jurisdiccionPolicial`, `pedidoEfectuado`,
+>   `ubicacion`, `panorama`, las 4 horas intermedias (`horaCircunscripto`,
+>   `horaDominado`, `horaExtinguido`, `horaFinalizacion`) y `dptoTecnico`.
+> - **En `detalle`** (Json, sin migración): `Inmueble.numeroPiso` —distinto de
+>   `pisos`, que es cuántos tiene—, `DatosComplementarios.arrendatario` +
+>   `dniArrendatario`, y `Vehiculo.registro` / `rodado` / `otrosDatos`.
+> - **La sexta fila "Otros"** de concurrentes ahora se usa (`otros2`).
+> - **Las listas cerradas del PDF viven en `lib/parteOpciones.ts`** y la UI las carga
+>   con `<select>`. Antes eran texto libre y no matcheaban: `Objeto` tiene 65 valores
+>   canónicos ("Incendio chico de residuos (cubiertas/ramas/residuos)") y el texto
+>   escrito a mano terminaba **agregado como opción nueva** al desplegable del PDF
+>   archivado. Un test compara cada catálogo contra las opciones de la plantilla real.
+> - **Se guardan como texto, no como enum:** son catálogos del DTO 3, no del dominio;
+>   si cambian una opción no queremos una migración. Los partes viejos con texto libre
+>   se siguen abriendo (el `<select>` agrega el valor "cargado a mano").
+>
+> **Dos nombres que teníamos mal:**
+> - **BP no es "brigada de protección" sino "busca persona"**: la columna marca a quien
+>   convocó el localizador del cuartel, a diferencia de `G` (ya estaba de guardia). La
+>   clave `bp` del Json se mantuvo (así se rotula la columna); cambió la etiqueta de la
+>   UI y los comentarios.
+> - **`Ch.` es "chofer", no "chapa"** (así se llama el campo del AcroForm, y el ejemplo
+>   de la plantilla trae el N° de móvil). El modelo (`movil`) estaba bien; el PRD y este
+>   backlog eran los que decían "chapa". `Chapa` es la patente del vehículo, otro campo.
+>
+> **Un bug de fecha, de paso:** el PDF formateaba `parte.fecha` en hora argentina, pero
+> es una fecha "día" guardada como medianoche UTC → **el PDF salía fechado el día
+> anterior** que la ficha. Ahora usa `fmtFechaDia` como el resto de la app.
+>
+> **El test que evita que esto se repita:** `parteAcroForm.test.ts` llena un parte
+> "máximo" (todas las secciones, todas las filas) y exige que **no quede ningún
+> casillero vacío**. Es la contracara del test de `camposFaltantes`: uno detecta campos
+> del PDF que ya no existen, el otro campos del PDF que el dominio no llena.
+> Herramientas del relevamiento: `pnpm pdf:campos` y `pnpm pdf:muestra`.
 
 ## B. Smells / mejoras técnicas
 
@@ -430,20 +452,65 @@ controlan en app-level sin constraint DB.
 ### S6 — Listados sin paginación 🟢 · pendiente
 `tareas`, `partes`, `guardias` traen todo (solo `novedades` limita).
 
-### S8 — `editarParte` existe pero no hay UI que lo llame 🟡 · pendiente *(alta 2026-07-30)*
-`server/partes.ts:153` define `editarParte` con permisos y todo, pero **ningún
-componente la usa** (verificado con grep en todo el repo). En la práctica **un parte
-no se puede editar**: se crea y se cierra. No hay página `/partes/[id]/editar` ni
-`FormEditarParte`, a diferencia de tareas y guardias, que sí tienen su form de edición.
-- **Impacto real:** el PRD plantea el parte como algo que se completa en varias
-  pasadas; hoy hay que hacerlo de una. Se nota más desde **P6**, que agregó campos.
-- **Opciones:** construir el form de edición (reutilizando `FormNuevoParte` con
-  valores iniciales, que ya está preparado — `SelectorPersonal` acepta `inicial`), o
-  borrar la acción muerta. Lo primero es lo que pide el PRD.
+### S8 — `editarParte` existe pero no hay UI que lo llame 🟡 · hecho *(2026-07-31)*
+> **Resuelto.** Hay página `/partes/[id]/editar` y botón "Editar parte" en la ficha,
+> visible mientras el parte esté ABIERTO.
+>
+> - **Un solo formulario para alta y edición** (`components/FormParte.tsx`, antes
+>   `FormNuevoParte`): recibe la Server Action y los valores iniciales. Alta y edición
+>   muestran exactamente los mismos campos, porque el parte se completa en varias
+>   pasadas y cualquier campo puede llegar después.
+> - `editarParte` pasó a la firma de `useActionState` y **devuelve el error** en vez de
+>   hacer `return;` mudo (parte de **S2** para este módulo): quien acaba de escribir un
+>   parte entero tiene que enterarse si no se guardó.
+> - **El permiso quedó en un solo lugar:** `puedeEditarParte(ctx, parte)` en
+>   `lib/permisos.ts` (creador o conducción + estado ABIERTO). La usan la página de
+>   edición, la ficha, `editarParte` y `cerrarParte`, que antes repetía la condición.
+> - Tests: `server/partes.test.ts` (guarda campos, no deja editar un parte cerrado ni
+>   el de otra persona, la conducción sí, otro destacamento no existe) y
+>   `puedeEditarParte` en `lib/permisos.test.ts`.
+> - Se encontró de paso que un campo enviado con sólo espacios se guardaba como `""`
+>   en vez de `null`.
 
 ### S7 — Ruido de "alta de guardia" en el cuaderno 🟢 · pendiente
 Cargar el cronograma mensual inunda la timeline con "Alta de guardia"
 (`app/novedades/page.tsx:55`).
+
+### S9 — El link de activación usado/vencido no tenía salida 🟡 · hecho *(2026-07-31)*
+> **El síntoma real:** la gente **vuelve a entrar por el link de activación por
+> costumbre** (es el link que le llegó por WhatsApp), y como al activar la cuenta se
+> borra el hash del token, caía en una tarjeta que decía "no es válido o venció, pedile
+> uno nuevo al encargado" **sin ningún link a ninguna parte** — así que volvían a pedir
+> la URL de la app.
+>
+> **Resuelto** en `app/activar/[token]/page.tsx`: la tarjeta ahora siempre tiene un
+> botón **"Ir al inicio"** → `/`, que con sesión entra a la app y sin sesión cae en
+> `/login` (lo resuelve el proxy).
+>
+> Además distingue **tres** estados en vez de dos, porque cada uno se resuelve distinto
+> (`estadoLink()` en `lib/activacion.ts`, con test):
+> - **vigente** → formulario para definir la contraseña;
+> - **vencido** (el token existe pero pasaron los 7 días de `DIAS_VALIDEZ`) → "pedile
+>   uno nuevo al encargado";
+> - **usado** (no hay usuario con ese hash: lo más común, la cuenta ya se activó) → "si
+>   ya definiste tu contraseña, entrá con tu email y contraseña".
+>
+> Antes los dos últimos compartían el mismo mensaje, que además era el equivocado para
+> el caso más frecuente: no necesitaban un link nuevo, necesitaban iniciar sesión.
+
+### S10 — `pnpm lint` fallaba con 3 errores 🟡 · hecho *(2026-07-31)*
+> - `components/AccionesNovedad.tsx`: cerraba el formulario de edición desde un
+>   `useEffect` que espiaba `pending` (`react-hooks/set-state-in-effect`). Ahora el
+>   cierre se decide **dentro de la acción** que envuelve a `editarNovedad`: no hay nada
+>   que sincronizar con un sistema externo, sólo "terminó bien → cerrar".
+> - `components/FormNuevoUsuario.tsx`: los dos `<a>` (`no-html-link-for-pages`).
+>   "Volver a Personal" pasó a `<Link>`; **"Dar de alta otra persona" no podía ser
+>   `<Link>`** —apunta al mismo path, y la navegación de cliente no limpiaría el
+>   formulario— así que es un botón que resetea el estado local, sin recargar la página.
+> - `app/personal/[id]/page.tsx`: import sin usar.
+> - `eslint.config.mjs`: se declaró la convención del prefijo `_` para parámetros que
+>   existen por la firma y no se usan (`_ctx` en `lib/permisos.ts`, `_prev` en las
+>   Server Actions). Borrarlos rompería la firma; el linter ya no avisa de cada uno.
 
 ## C. Features nuevas
 

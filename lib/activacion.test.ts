@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { generarActivacion, hashToken, passwordAleatoria } from "@/lib/activacion";
+import {
+  estadoLink,
+  generarActivacion,
+  hashToken,
+  passwordAleatoria,
+} from "@/lib/activacion";
 
 // Tolerancia para comparar el vencimiento sin acoplarse al tiempo exacto de
 // ejecución del test.
@@ -67,5 +72,47 @@ describe("passwordAleatoria", () => {
     const a = passwordAleatoria();
     const b = passwordAleatoria();
     expect(a).not.toBe(b);
+  });
+});
+
+describe("estadoLink", () => {
+  const AHORA = new Date("2026-07-31T12:00:00.000Z");
+  const MANANA = new Date("2026-08-01T12:00:00.000Z");
+  const AYER = new Date("2026-07-30T12:00:00.000Z");
+
+  it("es vigente si la cuenta está sin activar y el token no venció", () => {
+    expect(
+      estadoLink({ cuentaActivada: false, activacionExpira: MANANA }, AHORA),
+    ).toBe("vigente");
+  });
+
+  it("es vencido si pasó la fecha de vencimiento", () => {
+    expect(
+      estadoLink({ cuentaActivada: false, activacionExpira: AYER }, AHORA),
+    ).toBe("vencido");
+  });
+
+  it("es vencido justo en el instante del vencimiento (no se estira)", () => {
+    expect(
+      estadoLink({ cuentaActivada: false, activacionExpira: AHORA }, AHORA),
+    ).toBe("vencido");
+  });
+
+  it("es vencido si quedó un token sin fecha de vencimiento", () => {
+    expect(
+      estadoLink({ cuentaActivada: false, activacionExpira: null }, AHORA),
+    ).toBe("vencido");
+  });
+
+  it("es usado cuando no hay ningún usuario con ese token", () => {
+    // El caso más común: la cuenta se activó, el hash se borró y la persona
+    // vuelve a abrir su link de siempre. No es un link falso.
+    expect(estadoLink(null, AHORA)).toBe("usado");
+  });
+
+  it("es usado si la cuenta ya está activada, aunque el token no haya vencido", () => {
+    expect(
+      estadoLink({ cuentaActivada: true, activacionExpira: MANANA }, AHORA),
+    ).toBe("usado");
   });
 });

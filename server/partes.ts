@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
-import { esConduccion, puedeCrearParte } from "@/lib/permisos";
+import { puedeCrearParte, puedeEditarParte } from "@/lib/permisos";
 import { TIPOS_SINIESTRO } from "@/lib/dominio";
 import { parsearDetalleFormData } from "@/lib/partesDetalle";
 import { leerPersonalDeFormulario } from "@/lib/partePersonal";
@@ -19,50 +19,66 @@ const TIPOS_VALIDOS = new Set(TIPOS_SINIESTRO.map((t) => t.value));
 
 // Los campos del formulario son todos opcionales salvo el tipo de siniestro:
 // un parte se puede abrir con datos incompletos y completarse después.
+/// Campos de texto del formulario, todos opcionales. Se listan una sola vez:
+/// el esquema y la lectura del `FormData` se derivan de acá, así agregar un
+/// campo del formulario oficial es una línea y no tres.
+const CAMPOS_TEXTO = [
+  // Encabezado
+  "servicioNro",
+  "rubaNro",
+  "certificadoNro",
+  "informeNro",
+  "cuartel",
+  "fecha",
+  "objeto",
+  "direccion",
+  "localidad",
+  "jurisdiccionPolicial",
+  "pedidoEfectuado",
+  "ubicacion",
+  "panorama",
+  // Tiempos
+  "horaAviso",
+  "horaLlegada",
+  "horaCircunscripto",
+  "horaDominado",
+  "horaExtinguido",
+  "horaFinalizacion",
+  "horaRegreso",
+  // Recursos y descripción
+  "unidades",
+  "descripcion",
+  // Firmas
+  "datosTomadosPor",
+  "oficialActuante",
+  "dptoTecnico",
+  "jefeCuerpo",
+] as const;
+
+type CampoTexto = (typeof CAMPOS_TEXTO)[number];
+
 const esquemaParte = z.object({
   tipoSiniestro: z.string().min(1, "Seleccioná el tipo de siniestro."),
-  servicioNro: z.string().trim().optional(),
-  cuartel: z.string().trim().optional(),
-  fecha: z.string().optional(),
-  objeto: z.string().trim().optional(),
-  direccion: z.string().trim().optional(),
-  localidad: z.string().trim().optional(),
-  horaAviso: z.string().trim().optional(),
-  horaLlegada: z.string().trim().optional(),
-  horaRegreso: z.string().trim().optional(),
+  ...(Object.fromEntries(
+    CAMPOS_TEXTO.map((campo) => [campo, z.string().trim().optional()]),
+  ) as Record<CampoTexto, z.ZodOptional<z.ZodString>>),
   dotaciones: z.string().optional(),
   bomberos: z.string().optional(),
-  unidades: z.string().trim().optional(),
-  descripcion: z.string().trim().optional(),
   personal: z.string().optional(),
-  datosTomadosPor: z.string().trim().optional(),
-  oficialActuante: z.string().trim().optional(),
-  jefeCuerpo: z.string().trim().optional(),
 });
 
 type DatosParte = z.infer<typeof esquemaParte>;
 
-/// Lee y valida los campos comunes del formulario (alta y edición).
+/// Lee y valida los campos comunes del formulario (alta y edición). Un campo
+/// vacío se manda como `undefined` para que quede `null` en la DB en vez de "".
 function leerFormulario(formData: FormData) {
+  const texto = (nombre: string) => formData.get(nombre) || undefined;
   return esquemaParte.safeParse({
     tipoSiniestro: formData.get("tipoSiniestro"),
-    servicioNro: formData.get("servicioNro") || undefined,
-    cuartel: formData.get("cuartel") || undefined,
-    fecha: formData.get("fecha") || undefined,
-    objeto: formData.get("objeto") || undefined,
-    direccion: formData.get("direccion") || undefined,
-    localidad: formData.get("localidad") || undefined,
-    horaAviso: formData.get("horaAviso") || undefined,
-    horaLlegada: formData.get("horaLlegada") || undefined,
-    horaRegreso: formData.get("horaRegreso") || undefined,
-    dotaciones: formData.get("dotaciones") || undefined,
-    bomberos: formData.get("bomberos") || undefined,
-    unidades: formData.get("unidades") || undefined,
-    descripcion: formData.get("descripcion") || undefined,
-    personal: formData.get("personal") || undefined,
-    datosTomadosPor: formData.get("datosTomadosPor") || undefined,
-    oficialActuante: formData.get("oficialActuante") || undefined,
-    jefeCuerpo: formData.get("jefeCuerpo") || undefined,
+    ...Object.fromEntries(CAMPOS_TEXTO.map((campo) => [campo, texto(campo)])),
+    dotaciones: texto("dotaciones"),
+    bomberos: texto("bomberos"),
+    personal: texto("personal"),
   });
 }
 
@@ -74,29 +90,29 @@ function aEntero(valor: string | undefined): number | null {
 }
 
 /// Traduce los datos validados del formulario a los campos escalares del
-/// modelo (personal: textarea → array de strings, una persona por línea).
+/// modelo. Todos los campos de texto van a columnas homónimas, así que se
+/// mapean en bloque; sólo `fecha`, los numéricos y el personal necesitan
+/// conversión.
 function datosParaGuardar(d: DatosParte) {
+  // Un campo que llegó vacío (o con sólo espacios: zod ya recortó) se guarda
+  // como null, no como "": la ficha y el PDF preguntan por "sin cargar", y ""
+  // no es eso.
+  const textos = Object.fromEntries(
+    CAMPOS_TEXTO.filter((campo) => campo !== "fecha").map((campo) => [
+      campo,
+      d[campo] || null,
+    ]),
+  ) as Record<Exclude<CampoTexto, "fecha">, string | null>;
+
   return {
+    ...textos,
     tipoSiniestro: d.tipoSiniestro as TipoSiniestro,
-    servicioNro: d.servicioNro ?? null,
-    cuartel: d.cuartel ?? null,
     fecha: d.fecha ? new Date(d.fecha) : null,
-    objeto: d.objeto ?? null,
-    direccion: d.direccion ?? null,
-    localidad: d.localidad ?? null,
-    horaAviso: d.horaAviso ?? null,
-    horaLlegada: d.horaLlegada ?? null,
-    horaRegreso: d.horaRegreso ?? null,
     dotaciones: aEntero(d.dotaciones),
     bomberos: aEntero(d.bomberos),
-    unidades: d.unidades ?? null,
-    descripcion: d.descripcion ?? null,
     // El personal llega como JSON desde SelectorPersonal (P6) y se valida con
     // zod antes de guardarse: nunca se confía en la forma que mande el cliente.
     personal: leerPersonalDeFormulario(d.personal),
-    datosTomadosPor: d.datosTomadosPor ?? null,
-    oficialActuante: d.oficialActuante ?? null,
-    jefeCuerpo: d.jefeCuerpo ?? null,
   };
 }
 
@@ -148,19 +164,35 @@ export async function crearParte(
 
 /// Edición de un parte ya abierto. Solo el creador o conducción, y solo
 /// mientras esté ABIERTO — un parte cerrado es un registro formal cerrado.
-export async function editarParte(formData: FormData) {
+///
+/// Tiene la misma firma que `crearParte` para que `components/FormParte.tsx`
+/// pueda usar una u otra sin saber cuál es cuál, y devuelve el error en vez de
+/// fallar en silencio: la persona acaba de escribir un parte entero y tiene que
+/// enterarse si no se guardó.
+export async function editarParte(
+  _prev: EstadoForm,
+  formData: FormData,
+): Promise<EstadoForm> {
   const ctx = await getContextoAuth();
-  if (!ctx) redirect("/login");
+  if (!ctx) return { error: "Sesión no válida." };
   const parteId = String(formData.get("parteId") ?? "");
 
   const parte = await cargarParte(parteId, ctx.destacamentoId);
-  if (!parte || parte.estado !== "ABIERTO") return;
-  if (parte.creadorId !== ctx.usuarioId && !esConduccion(ctx)) return;
+  if (!parte) return { error: "El parte no existe o no es de tu destacamento." };
+  if (!puedeEditarParte(ctx, parte)) {
+    return parte.estado === "CERRADO"
+      ? { error: "El parte está cerrado: no se puede editar." }
+      : { error: "No tenés permisos para editar este parte." };
+  }
 
   const parsed = leerFormulario(formData);
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
   const d = parsed.data;
-  if (!TIPOS_VALIDOS.has(d.tipoSiniestro as TipoSiniestro)) return;
+  if (!TIPOS_VALIDOS.has(d.tipoSiniestro as TipoSiniestro)) {
+    return { error: "Tipo de siniestro inválido." };
+  }
 
   const detalle = parsearDetalleFormData(formData, d.tipoSiniestro as TipoSiniestro);
 
@@ -171,6 +203,7 @@ export async function editarParte(formData: FormData) {
 
   revalidatePath(`/partes/${parte.id}`);
   revalidatePath("/partes");
+  redirect(`/partes/${parte.id}`);
 }
 
 /// Cierra el parte: a partir de acá no se puede volver a editar. Solo el
@@ -181,8 +214,8 @@ export async function cerrarParte(formData: FormData) {
   const parteId = String(formData.get("parteId") ?? "");
 
   const parte = await cargarParte(parteId, ctx.destacamentoId);
-  if (!parte || parte.estado !== "ABIERTO") return;
-  if (parte.creadorId !== ctx.usuarioId && !esConduccion(ctx)) return;
+  // Misma regla que la edición: creador o conducción, y sólo si está ABIERTO.
+  if (!parte || !puedeEditarParte(ctx, parte)) return;
 
   await prisma.parteIntervencion.update({
     where: { id: parte.id },

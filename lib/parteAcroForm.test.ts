@@ -1,13 +1,19 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { PDFDocument, type PDFForm } from "pdf-lib";
+import {
+  PDFCheckBox,
+  PDFDocument,
+  PDFDropdown,
+  PDFTextField,
+  type PDFForm,
+} from "pdf-lib";
 import {
   limpiarFormulario,
   llenarFormularioParte,
   type ParteParaFormulario,
 } from "./parteAcroForm";
-import { PERSONAL_VACIO } from "./partePersonal";
+import { CUPO_CONCURRIO, CUPO_EN_CUARTEL, PERSONAL_VACIO } from "./partePersonal";
 
 /// Estos tests corren contra la plantilla oficial de verdad
 /// (`docs/parte-intervencion-DTO3.pdf`), no contra un mock: el valor está
@@ -30,13 +36,24 @@ async function formularioLimpio(): Promise<PDFForm> {
 
 const PARTE_MINIMO: ParteParaFormulario = {
   servicioNro: null,
+  rubaNro: null,
+  certificadoNro: null,
+  informeNro: null,
   cuartel: null,
   fecha: null,
   objeto: null,
   direccion: null,
   localidad: null,
+  jurisdiccionPolicial: null,
+  pedidoEfectuado: null,
+  ubicacion: null,
+  panorama: null,
   horaAviso: null,
   horaLlegada: null,
+  horaCircunscripto: null,
+  horaDominado: null,
+  horaExtinguido: null,
+  horaFinalizacion: null,
   horaRegreso: null,
   dotaciones: null,
   bomberos: null,
@@ -45,12 +62,134 @@ const PARTE_MINIMO: ParteParaFormulario = {
   personal: PERSONAL_VACIO,
   datosTomadosPor: null,
   oficialActuante: null,
+  dptoTecnico: null,
   jefeCuerpo: null,
 };
 
 function parteCon(extra: Partial<ParteParaFormulario>): ParteParaFormulario {
   return { ...PARTE_MINIMO, ...extra };
 }
+
+/// Parte "máximo": todos los campos escalares y todas las filas de todas las
+/// tablas cargadas. Sirve para el test de cobertura de casilleros.
+const PARTE_MAXIMO: ParteParaFormulario = (() => {
+  const relleno = (n: number) => `x${n}`;
+  const persona = (i: number) => ({
+    nombre: `Bombero ${i}`,
+    movil: "16",
+    guardia: true,
+    bp: true,
+  });
+  const vehiculo = {
+    propietario: "x",
+    conductor: "x",
+    edad: "40",
+    domicilio: "x",
+    dominio: "AB123CD",
+    registro: "x",
+    rodado: "Utilitario",
+    marca: "x",
+    modelo: "x",
+    anio: "2018",
+    otrosDatos: "x",
+    aseguradora: "x",
+    poliza: "x",
+  };
+  const victima = {
+    nombre: "x",
+    dni: "x",
+    sexo: "M",
+    edad: "40",
+    vehiculoNro: "1",
+    trasladoA: "x",
+  };
+  const organismo = { numero: "1", aCargo: "x", matricula: "x", observaciones: "x" };
+
+  return {
+    ...PARTE_MINIMO,
+    servicioNro: "0431",
+    rubaNro: "x",
+    certificadoNro: "x",
+    informeNro: "x",
+    cuartel: "Llavallol",
+    fecha: new Date("2026-07-30"),
+    objeto: "Incendio chico de vivienda",
+    direccion: "x",
+    localidad: "Llavallol",
+    jurisdiccionPolicial: "4ta - Llavallol",
+    pedidoEfectuado: "x",
+    ubicacion: "x",
+    panorama: "1",
+    horaAviso: "03:12",
+    horaLlegada: "03:19",
+    horaCircunscripto: "03:25",
+    horaDominado: "03:41",
+    horaExtinguido: "03:58",
+    horaFinalizacion: "04:20",
+    horaRegreso: "04:40",
+    dotaciones: 2,
+    bomberos: 7,
+    unidades: "16, 22",
+    descripcion: "x",
+    datosTomadosPor: "x",
+    oficialActuante: "x",
+    dptoTecnico: "x",
+    jefeCuerpo: "x",
+    personal: {
+      concurrio: Array.from({ length: CUPO_CONCURRIO }, (_, i) => persona(i)),
+      enCuartel: Array.from({ length: CUPO_EN_CUARTEL }, (_, i) => persona(i)),
+    },
+    detalle: {
+      condicionesClimaticas: "Soleado",
+      vehiculos: [vehiculo, vehiculo],
+      incendio: { origen: "x", causa: "x", propagacion: "x", evolucion: "x" },
+      inmueble: {
+        paredes: "x",
+        techos: "x",
+        instElectrica: "x",
+        instGas: "x",
+        ambientes: "4",
+        pisos: "1",
+        numeroPiso: "PB",
+        nichoHidrante: true,
+        extintor: true,
+      },
+      datosComplementarios: {
+        propietario: "x",
+        dni: "x",
+        domicilio: "x",
+        arrendatario: "x",
+        dniArrendatario: "x",
+        aseguradora: "x",
+        poliza: "x",
+        razonSocial: "x",
+        ramo: "x",
+      },
+      victimas: [victima, victima, victima, victima],
+      victimasFatales: [
+        { nombre: relleno(1), dni: "x", sexo: "M" },
+        { nombre: relleno(2), dni: "x", sexo: "F" },
+      ],
+      animal: { propietario: "x", dni: "x", domicilio: "x", especieRaza: "x" },
+      ferroviario: {
+        guarda: "x",
+        maquinista: "x",
+        recorrido: "x",
+        kmVia: "x",
+        nroTren: "x",
+        nroCabina: "x",
+      },
+      concurrentes: {
+        movilPolicial: organismo,
+        ambulancia: organismo,
+        defensaCivil: organismo,
+        transito: organismo,
+        otros: organismo,
+        otros2: organismo,
+      },
+    },
+  };
+})();
 
 describe("limpiarFormulario", () => {
   it("borra el parte de ejemplo que trae la plantilla oficial", async () => {
@@ -101,6 +240,28 @@ describe("llenarFormularioParte — el mapeo sigue vigente", () => {
     );
     expect(camposFaltantes).toEqual([]);
   });
+
+  it("llena TODOS los casilleros de la plantilla con un parte máximo", async () => {
+    // La contracara del test anterior: ese detecta campos del PDF que ya no
+    // existen, y este detecta campos del PDF que el dominio no llega a llenar.
+    // Con un parte "máximo" (todas las secciones, todas las filas) no debería
+    // quedar ni un casillero vacío: si aparece uno, es un dato del formulario
+    // oficial que el modelo no tiene y hay que agregar (así se relevó P9).
+    const form = await formularioLimpio();
+    llenarFormularioParte(form, PARTE_MAXIMO);
+
+    const vacios = form
+      .getFields()
+      .filter((campo) => {
+        if (campo instanceof PDFTextField) return !campo.getText();
+        if (campo instanceof PDFCheckBox) return !campo.isChecked();
+        if (campo instanceof PDFDropdown) return campo.getSelected().length === 0;
+        return false;
+      })
+      .map((campo) => campo.getName());
+
+    expect(vacios).toEqual([]);
+  });
 });
 
 describe("llenarFormularioParte — encabezado", () => {
@@ -138,13 +299,83 @@ describe("llenarFormularioParte — encabezado", () => {
     );
   });
 
-  it("formatea la fecha como dd/mm/aaaa en hora argentina", async () => {
+  it("escribe los tres números de expediente del encabezado", async () => {
     const form = await formularioLimpio();
-    // 03:00 UTC del 30/07 = 00:00 del 30/07 en Argentina: no se corre de día.
     llenarFormularioParte(
       form,
-      parteCon({ fecha: new Date("2026-07-30T03:00:00.000Z") }),
+      parteCon({ rubaNro: "R-118", certificadoNro: "C-441", informeNro: "I-77" }),
     );
+    expect(form.getTextField("RUBA nº").getText()).toBe("R-118");
+    expect(form.getTextField("Certificado nº").getText()).toBe("C-441");
+    expect(form.getTextField("Informe nº").getText()).toBe("I-77");
+  });
+
+  it("escribe los siete tiempos, cada uno en su casillero", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({
+        horaAviso: "03:12",
+        horaLlegada: "03:19",
+        horaCircunscripto: "03:25",
+        horaDominado: "03:41",
+        horaExtinguido: "03:58",
+        horaFinalizacion: "04:20",
+        horaRegreso: "04:40",
+      }),
+    );
+    expect(form.getTextField("Hora recepción").getText()).toBe("03:12");
+    expect(form.getTextField("Hora llegada").getText()).toBe("03:19");
+    expect(form.getTextField("Hora circunscripto").getText()).toBe("03:25");
+    expect(form.getTextField("Hora dominado").getText()).toBe("03:41");
+    expect(form.getTextField("Hora extinguido").getText()).toBe("03:58");
+    expect(form.getTextField("Hora finalización").getText()).toBe("04:20");
+    expect(form.getTextField("Hora regreso").getText()).toBe("04:40");
+  });
+
+  it("escribe ubicación, pedido efectuado y las dos firmas restantes", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({
+        ubicacion: "-34.799493, -58.427864",
+        pedidoEfectuado: "11 6034 7528",
+        datosTomadosPor: "Cabo Moser",
+        dptoTecnico: "Of. Insp. Cabrera",
+        jefeCuerpo: "Comandante Giménez",
+      }),
+    );
+    // El campo rotulado "Ubicación" tiene un nombre interno bastante distinto.
+    expect(
+      form.getTextField("Descripción del lugar o link a Google Maps").getText(),
+    ).toBe("-34.799493, -58.427864");
+    expect(form.getTextField("Pedido efectuado").getText()).toBe("11 6034 7528");
+    expect(form.getTextField("Datos tomados por").getText()).toBe("Cabo Moser");
+    expect(form.getTextField("Dpto. Técnico").getText()).toBe("Of. Insp. Cabrera");
+    expect(form.getTextField("Firma Jefe del Cuerpo").getText()).toBe(
+      "Comandante Giménez",
+    );
+  });
+
+  it("elige jurisdicción policial y panorama en su lista", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({ jurisdiccionPolicial: "4ta - Llavallol", panorama: "3" }),
+    );
+    expect(form.getDropdown("Jurisdicción policial").getSelected()).toEqual([
+      "4ta - Llavallol",
+    ]);
+    expect(form.getDropdown("Panorama").getSelected()).toEqual(["3"]);
+  });
+
+  it("formatea la fecha como dd/mm/aaaa sin correrse de día", async () => {
+    const form = await formularioLimpio();
+    // Así llega la fecha del parte: es una fecha "día" y se guarda como
+    // medianoche UTC (`new Date("2026-07-30")` desde el <input type="date">).
+    // Formatearla en hora argentina restaba un día y el PDF salía fechado el
+    // 29/07 mientras la ficha mostraba 30/07.
+    llenarFormularioParte(form, parteCon({ fecha: new Date("2026-07-30") }));
     expect(form.getTextField("Fecha").getText()).toBe("30/07/2026");
   });
 
@@ -236,6 +467,31 @@ describe("llenarFormularioParte — tablas repetidas", () => {
     expect(form.getTextField("Chapa vehículo 1.1").getText()).toBe("XY987ZW");
   });
 
+  it("llena registro, rodado y otros datos del vehículo", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({
+        detalle: {
+          vehiculos: [
+            {
+              registro: "12345678 - Lomas de Zamora",
+              rodado: "Utilitario",
+              otrosDatos: "Baúl con herramientas",
+            },
+          ],
+        },
+      }),
+    );
+    expect(form.getTextField("Nº y origen del registro vehículo 1.0").getText()).toBe(
+      "12345678 - Lomas de Zamora",
+    );
+    expect(form.getDropdown("Rodado tipo 1.0").getSelected()).toEqual(["Utilitario"]);
+    expect(form.getTextField("Otros datos vehículo 1.0").getText()).toBe(
+      "Baúl con herramientas",
+    );
+  });
+
   it("llena las 4 columnas de cada organismo concurrente, en su fila", async () => {
     const form = await formularioLimpio();
     llenarFormularioParte(
@@ -260,6 +516,19 @@ describe("llenarFormularioParte — tablas repetidas", () => {
     expect(form.getTextField("Observaciones móvil policial.0").getText()).toBe("Corte de calle");
     // "Otros" es la quinta fila del formulario.
     expect(form.getTextField("Observaciones móvil policial.4").getText()).toBe("Aguas");
+  });
+
+  it("usa la sexta fila del formulario para el segundo 'Otros'", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({
+        detalle: { concurrentes: { otros2: { observaciones: "Cooperativa eléctrica" } } },
+      }),
+    );
+    expect(form.getTextField("Observaciones móvil policial.5").getText()).toBe(
+      "Cooperativa eléctrica",
+    );
   });
 
   it("acepta un parte viejo con el organismo como texto suelto", async () => {

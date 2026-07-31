@@ -103,6 +103,18 @@ export function puedeCrearParte(_ctx: ContextoAuth): boolean {
   return true;
 }
 
+/// Editar o cerrar un parte: sólo quien lo creó o la conducción, y **sólo
+/// mientras esté ABIERTO** — un parte cerrado es un registro formal (PRD §4.7).
+/// Se recibe lo mínimo del parte para poder usarla igual desde una página
+/// (con la fila de Prisma) que desde una Server Action.
+export function puedeEditarParte(
+  ctx: ContextoAuth,
+  parte: { estado: string; creadorId: string },
+): boolean {
+  if (parte.estado !== "ABIERTO") return false;
+  return parte.creadorId === ctx.usuarioId || esConduccion(ctx);
+}
+
 /// Fichar entrada/salida: todos (PRD §4.5).
 export function puedeFichar(_ctx: ContextoAuth): boolean {
   return true;

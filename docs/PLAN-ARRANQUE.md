@@ -72,7 +72,7 @@ Con Fase 0 hecha, **ningún track toca `schema.prisma` ni `scripts/setup-storage
 | **A — Acceso & Personal** | S1, S4, S2(personal) | `lib/auth.ts`, `lib/supabase/middleware.ts`, `server/personal.ts`, `app/personal/**`, `components/Form*Usuario/Contacto`, `components/*Password/*Rol/*Activacion` | `server/{tareas,guardias,partes,novedades}.ts` |
 | **B — Tareas** | S3(tareas), S2(tareas) | `server/tareas.ts`, `app/tareas/**`, `components/*Tarea*`, `components/ReasignarTarea.tsx`, `components/FormEvidencia.tsx` | otros `server/*` |
 | **C — Guardias & Cuarteleros** | P5, S3(guardias), S2(guardias) | `server/guardias.ts`, `app/guardias/**`, `components/*Guardia*`, `components/CederGuardia.tsx` (usa `CuarteleroExterno` ya migrado) | schema, otros `server/*` |
-| **D — Partes (fotos)** | P3(partes), S2(partes) | `server/partes.ts`, `app/partes/**`, `components/FormNuevoParte.tsx` (usa `ParteAdjunto` ya migrado) | schema, otros `server/*` |
+| **D — Partes (fotos)** | P3(partes), S2(partes) | `server/partes.ts`, `app/partes/**`, `components/FormParte.tsx` (usa `ParteAdjunto` ya migrado) | schema, otros `server/*` |
 | **E — Novedades (fotos + filtro)** | P3(novedades), P4, S2(novedades) | `server/novedades.ts`, `app/novedades/page.tsx`, `components/FormNuevaNovedad.tsx`, `components/AccionesNovedad.tsx` (usa `NovedadAdjunto` ya migrado) | schema, otros `server/*` |
 
 ---

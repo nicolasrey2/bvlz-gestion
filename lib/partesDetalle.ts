@@ -20,10 +20,16 @@ export type Vehiculo = {
   conductor?: string;
   edad?: string;
   domicilio?: string;
+  /// Chapa patente. El campo del PDF se llama "Chapa vehículo".
   dominio?: string;
+  /// "Nº y origen del registro": registro de conducir del conductor/a.
+  registro?: string;
+  /// Lista cerrada del PDF (`RODADOS` en `lib/parteOpciones.ts`).
+  rodado?: string;
   marca?: string;
   modelo?: string;
   anio?: string;
+  otrosDatos?: string;
   aseguradora?: string;
   poliza?: string;
 };
@@ -40,8 +46,11 @@ export type Inmueble = {
   techos?: string;
   instElectrica?: string;
   instGas?: string;
+  /// Cantidad de ambientes y de pisos del inmueble.
   ambientes?: string;
   pisos?: string;
+  /// En qué piso ocurrió (distinto de `pisos`, que es cuántos tiene).
+  numeroPiso?: string;
   nichoHidrante?: boolean;
   extintor?: boolean;
 };
@@ -50,6 +59,8 @@ export type DatosComplementarios = {
   propietario?: string;
   dni?: string;
   domicilio?: string;
+  arrendatario?: string;
+  dniArrendatario?: string;
   aseguradora?: string;
   poliza?: string;
   razonSocial?: string;
@@ -106,6 +117,9 @@ export type Concurrentes = {
   defensaCivil?: OrganismoConcurrente;
   transito?: OrganismoConcurrente;
   otros?: OrganismoConcurrente;
+  /// El formulario imprime **dos** filas "Otros"; la segunda existía en el PDF
+  /// y quedaba siempre en blanco porque el dominio no la modelaba.
+  otros2?: OrganismoConcurrente;
 };
 
 /// Claves de `Concurrentes` en el orden de las filas del formulario.
@@ -115,6 +129,7 @@ export const ORGANISMOS_CONCURRENTES = [
   { clave: "defensaCivil", label: "Defensa Civil" },
   { clave: "transito", label: "Tránsito" },
   { clave: "otros", label: "Otros" },
+  { clave: "otros2", label: "Otros (2)" },
 ] as const satisfies ReadonlyArray<{
   clave: keyof Concurrentes;
   label: string;
@@ -205,9 +220,12 @@ function leerVehiculo(formData: FormData, prefijo: string): Vehiculo | undefined
     edad: campoTexto(formData, `${prefijo}_edad`),
     domicilio: campoTexto(formData, `${prefijo}_domicilio`),
     dominio: campoTexto(formData, `${prefijo}_dominio`),
+    registro: campoTexto(formData, `${prefijo}_registro`),
+    rodado: campoTexto(formData, `${prefijo}_rodado`),
     marca: campoTexto(formData, `${prefijo}_marca`),
     modelo: campoTexto(formData, `${prefijo}_modelo`),
     anio: campoTexto(formData, `${prefijo}_anio`),
+    otrosDatos: campoTexto(formData, `${prefijo}_otrosDatos`),
     aseguradora: campoTexto(formData, `${prefijo}_aseguradora`),
     poliza: campoTexto(formData, `${prefijo}_poliza`),
   });
@@ -270,6 +288,7 @@ function leerInmueble(formData: FormData): Inmueble | undefined {
     instGas: campoTexto(formData, "inmueble_instGas"),
     ambientes: campoTexto(formData, "inmueble_ambientes"),
     pisos: campoTexto(formData, "inmueble_pisos"),
+    numeroPiso: campoTexto(formData, "inmueble_numeroPiso"),
     nichoHidrante: campoBooleano(formData, "inmueble_nichoHidrante"),
     extintor: campoBooleano(formData, "inmueble_extintor"),
   });
@@ -280,6 +299,8 @@ function leerDatosComplementarios(formData: FormData): DatosComplementarios | un
     propietario: campoTexto(formData, "dc_propietario"),
     dni: campoTexto(formData, "dc_dni"),
     domicilio: campoTexto(formData, "dc_domicilio"),
+    arrendatario: campoTexto(formData, "dc_arrendatario"),
+    dniArrendatario: campoTexto(formData, "dc_dniArrendatario"),
     aseguradora: campoTexto(formData, "dc_aseguradora"),
     poliza: campoTexto(formData, "dc_poliza"),
     razonSocial: campoTexto(formData, "dc_razonSocial"),

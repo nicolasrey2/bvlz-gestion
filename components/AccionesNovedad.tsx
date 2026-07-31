@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { editarNovedad, eliminarNovedad, type EstadoForm } from "@/server/novedades";
 import { BotonAccion } from "@/components/BotonAccion";
 import type { TipoNovedad } from "@/generated/prisma/client";
@@ -23,19 +23,24 @@ export function AccionesNovedad({
   tipos: { value: TipoNovedad; label: string }[];
 }) {
   const [editando, setEditando] = useState(false);
-  const [huboEnvio, setHuboEnvio] = useState(false);
+
+  /// Guarda y, si salió bien, cierra el formulario. El cierre se decide **acá,
+  /// dentro de la acción**, y no en un `useEffect` que espiaba `pending`: no
+  /// hay nada que sincronizar con un sistema externo, sólo "terminó bien →
+  /// cerrar". El error se sigue mostrando con el formulario abierto.
+  const guardar = async (
+    previo: EstadoForm,
+    formData: FormData,
+  ): Promise<EstadoForm> => {
+    const resultado = await editarNovedad(previo, formData);
+    if (!resultado?.error) setEditando(false);
+    return resultado;
+  };
+
   const [state, action, pending] = useActionState<EstadoForm, FormData>(
-    editarNovedad,
+    guardar,
     null,
   );
-
-  // Al terminar un guardado sin error, cierro el formulario de edición.
-  useEffect(() => {
-    if (huboEnvio && !pending && !state?.error) {
-      setEditando(false);
-      setHuboEnvio(false);
-    }
-  }, [huboEnvio, pending, state]);
 
   if (!editando) {
     return (
@@ -62,11 +67,7 @@ export function AccionesNovedad({
   }
 
   return (
-    <form
-      action={action}
-      onSubmit={() => setHuboEnvio(true)}
-      className="mt-2 flex flex-col gap-2"
-    >
+    <form action={action} className="mt-2 flex flex-col gap-2">
       <input type="hidden" name="id" value={id} />
       <select name="tipo" defaultValue={tipo} className={input}>
         {tipos.map((t) => (

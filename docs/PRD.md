@@ -183,7 +183,7 @@ Registro **formal** de siniestros, replicando el formulario oficial de la **Asoc
 
 *Encabezado / identificación*
 - Servicio N°, Ruba N°, Cuartel (Llavallol), Certificado, Informe, Hoja X de Y.
-- Fecha, Objeto (descripción breve), Oficial actuante, Dirección, Localidad, Jurisdicción policial, P. efectuado (teléfono/contacto).
+- Fecha, Objeto (**lista cerrada** de 65 categorías oficiales, no texto libre), Oficial actuante, Dirección, Localidad, Jurisdicción policial, P. efectuado (teléfono/contacto).
 - Ubicación (coordenadas), Panorama.
 
 *Tiempos*
@@ -209,7 +209,8 @@ Registro **formal** de siniestros, replicando el formulario oficial de la **Asoc
 - **Siniestros ferroviarios:** guarda, maquinista, recorrido, km de vía, N° tren, N° cabina.
 
 *Personal*
-- **Personal que concurrió:** jerarquía y apellido, Chapa, columnas G / BP.
+- **Personal que concurrió:** jerarquía y apellido, **Ch.** (chofer: N° del móvil que
+  condujo), **G** (estaba de guardia), **BP** (lo convocó el **busca persona**).
 - **Personal en el cuartel:** jerarquía y apellido, columnas G / BP.
 
 *Firmas*

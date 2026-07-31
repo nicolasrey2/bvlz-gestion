@@ -4,8 +4,9 @@ import { z } from "zod";
 ///
 /// El formulario oficial tiene dos tablas separadas —PERSONAL QUE CONCURRIÓ y
 /// PERSONAL EN EL CUARTEL— y, en la primera, tres columnas además del nombre:
-/// Ch. (número del móvil que condujo), G (estaba de guardia) y BP (brigada de
-/// protección). Antes de P6 el dominio guardaba sólo un array de strings.
+/// **Ch.** (chofer: número del móvil que condujo), **G** (ya estaba de guardia)
+/// y **BP** (busca persona: lo convocó el localizador del cuartel). Antes de P6
+/// el dominio guardaba sólo un array de strings.
 
 /// Una línea de la tabla de personal.
 export type PersonaParte = {
@@ -20,11 +21,14 @@ export type PersonaParte = {
   /// trazabilidad; lo que se imprime siempre es `nombre`. Va vacío para los
   /// cuarteleros y para cualquiera que se cargue como texto libre.
   usuarioId?: string;
-  /// Columna "Ch.": número del móvil que condujo. Sólo aplica a quien concurrió.
+  /// Columna "Ch." (chofer): número del móvil que condujo. Sólo aplica a quien
+  /// concurrió.
   movil?: string;
-  /// Columna "G": estaba de guardia.
+  /// Columna "G": ya estaba de guardia cuando entró el aviso.
   guardia?: boolean;
-  /// Columna "BP": brigada de protección.
+  /// Columna "BP": lo convocó el **busca persona** (el localizador del
+  /// cuartel), a diferencia de quien ya estaba de guardia. La clave se llama
+  /// `bp` porque así se rotula la columna en el formulario oficial.
   bp?: boolean;
 };
 

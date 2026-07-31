@@ -37,25 +37,12 @@ export async function GET(
   });
   if (!parte) return new Response("No encontrado", { status: 404 });
 
+  // Los campos escalares del parte coinciden en nombre con los que espera el
+  // formulario, así que se pasan tal cual; sólo `personal` necesita parseo (es
+  // una columna Json).
   const datos: ParteParaFormulario = {
-    servicioNro: parte.servicioNro,
-    cuartel: parte.cuartel,
-    fecha: parte.fecha,
-    objeto: parte.objeto,
-    direccion: parte.direccion,
-    localidad: parte.localidad,
-    horaAviso: parte.horaAviso,
-    horaLlegada: parte.horaLlegada,
-    horaRegreso: parte.horaRegreso,
-    dotaciones: parte.dotaciones,
-    bomberos: parte.bomberos,
-    unidades: parte.unidades,
-    descripcion: parte.descripcion,
+    ...parte,
     personal: leerPersonal(parte.personal),
-    datosTomadosPor: parte.datosTomadosPor,
-    oficialActuante: parte.oficialActuante,
-    jefeCuerpo: parte.jefeCuerpo,
-    detalle: parte.detalle,
   };
 
   const documento = await PDFDocument.load(await readFile(RUTA_PLANTILLA));
@@ -76,9 +63,9 @@ export async function GET(
   }
 
   // Un parte cerrado se archiva: se aplana para que el PDF no sea editable.
-  // El abierto se deja con los campos vivos, así en el cuartel pueden
-  // completar a mano lo que el sistema todavía no carga (horas intermedias,
-  // columnas Ch./G/BP del personal) antes de cerrarlo.
+  // El abierto se deja con los campos vivos: es el borrador que se lleva al
+  // cuartel para corregir a mano antes de volcar los cambios en la app
+  // (`/partes/[id]/editar`) y cerrarlo.
   if (parte.estado === "CERRADO") formulario.flatten();
 
   const bytes = await documento.save();

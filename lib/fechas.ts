@@ -58,6 +58,13 @@ export function fmtDiaSemana(d: Date): string {
   return d.toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "short" });
 }
 
+/// Fecha "día" en el formato que espera un `<input type="date">`
+/// (`aaaa-mm-dd`), para precargar un formulario de edición. En UTC por el mismo
+/// motivo que `fmtFechaDia`: si no, el campo aparece con el día anterior.
+export function fmtFechaInput(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
 // --- Cálculo del "día de hoy" en Argentina ----------------------------------
 
 /// Partes del día actual en Argentina: { y, m (1-12), d }.

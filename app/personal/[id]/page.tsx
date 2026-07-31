@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
-import { RANGOS, NOMBRE_ROL, nombreRango } from "@/lib/dominio";
+import { RANGOS, NOMBRE_ROL } from "@/lib/dominio";
 import {
   cambiarRango,
   cambiarEstadoUsuario,

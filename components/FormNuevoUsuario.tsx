@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { crearUsuario, type EstadoForm } from "@/server/personal";
 import { RANGOS, NOMBRE_ROL, ROLES_DE_AREA } from "@/lib/dominio";
 import { BotonCopiar } from "@/components/BotonCopiar";
@@ -16,17 +17,33 @@ export function FormNuevoUsuario({
 }: {
   areas: { id: string; nombre: string }[];
 }) {
+  const [rol, setRol] = useState<RolTipo | "">("");
+  // "Dar de alta otra persona": vuelve al formulario vacío sin recargar la
+  // página. Antes era un <a> al mismo path, que servía sólo porque forzaba una
+  // recarga completa para limpiar el estado del formulario.
+  const [otraPersona, setOtraPersona] = useState(false);
+
+  /// Da de alta y vuelve a mostrar la tarjeta de éxito (con el link nuevo),
+  /// incluso si venimos de haber cargado a alguien recién.
+  const crear = async (
+    previo: EstadoForm,
+    formData: FormData,
+  ): Promise<EstadoForm> => {
+    const resultado = await crearUsuario(previo, formData);
+    setOtraPersona(false);
+    return resultado;
+  };
+
   const [state, action, pending] = useActionState<EstadoForm, FormData>(
-    crearUsuario,
+    crear,
     null,
   );
-  const [rol, setRol] = useState<RolTipo | "">("");
 
   // El área solo se pide para roles de área (encargado de área / miembro).
   const pideArea = rol !== "" && ROLES_DE_AREA.includes(rol);
 
   // Éxito: mostrar el link de activación para compartir (no se seteó contraseña).
-  if (state && "ok" in state && state.ok) {
+  if (state && "ok" in state && state.ok && !otraPersona) {
     const url =
       (typeof window !== "undefined" ? window.location.origin : "") + state.path;
     return (
@@ -44,15 +61,16 @@ export function FormNuevoUsuario({
             <BotonCopiar texto={url} />
           </div>
         </div>
-        <a
-          href="/personal/nuevo"
+        <button
+          type="button"
+          onClick={() => setOtraPersona(true)}
           className="text-center text-sm font-semibold text-red-700 underline"
         >
           Dar de alta otra persona
-        </a>
-        <a href="/personal" className="text-center text-sm text-zinc-500">
+        </button>
+        <Link href="/personal" className="text-center text-sm text-zinc-500">
           Volver a Personal
-        </a>
+        </Link>
       </div>
     );
   }
