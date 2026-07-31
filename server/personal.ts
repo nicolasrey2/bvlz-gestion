@@ -8,6 +8,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { RANGOS, ROLES_DE_AREA, NOMBRE_ROL } from "@/lib/dominio";
+import { campoEmail } from "@/lib/email";
 import { generarActivacion, passwordAleatoria } from "@/lib/activacion";
 import type { Rango, RolTipo } from "@/generated/prisma/client";
 
@@ -23,10 +24,16 @@ const ROLES_VALIDOS = new Set(Object.keys(NOMBRE_ROL));
 const esquema = z.object({
   nombre: z.string().trim().min(1, "Ingresá el nombre."),
   apellido: z.string().trim().min(1, "Ingresá el apellido."),
-  email: z.string().trim().min(3, "Ingresá un email válido."),
+  // S4: valida formato de email y lo normaliza a minúsculas antes de guardar.
+  email: campoEmail,
   rango: z.string().min(1, "Elegí un rango."),
   rol: z.string().optional(),
   areaId: z.string().optional(),
+});
+
+const esquemaEmail = z.object({
+  usuarioId: z.string().min(1, "Falta el usuario."),
+  email: campoEmail,
 });
 
 const esquemaContacto = z.object({
@@ -47,6 +54,24 @@ function esEmailDuplicado(mensaje: string | undefined): boolean {
   if (!mensaje) return false;
   const texto = mensaje.toLowerCase();
   return texto.includes("registered") || texto.includes("exists");
+}
+
+/// True si ya hay un usuario con ese email. La comparación es
+/// case-insensitive a propósito: `Usuario.email` es `@unique` pero en Postgres
+/// esa unicidad distingue mayúsculas, y quedan registros viejos anteriores a
+/// S4 sin normalizar. `exceptoId` excluye al usuario que se está editando.
+async function emailOcupado(
+  email: string,
+  exceptoId?: string,
+): Promise<boolean> {
+  const otro = await prisma.usuario.findFirst({
+    where: {
+      email: { equals: email, mode: "insensitive" },
+      ...(exceptoId ? { id: { not: exceptoId } } : {}),
+    },
+    select: { id: true },
+  });
+  return otro !== null;
 }
 
 /// Alta de un usuario del destacamento. Solo la conducción del dto (PRD §3.5).
@@ -97,7 +122,13 @@ export async function crearUsuario(
     }
   }
 
-  // 4) Crear el usuario en Supabase Auth (email ya confirmado).
+  // 4) Unicidad del email antes de tocar Auth: así el mensaje es claro y no
+  // hay que crear la cuenta para después revertirla.
+  if (await emailOcupado(datos.email)) {
+    return { error: "Ya existe un usuario con ese email." };
+  }
+
+  // 5) Crear el usuario en Supabase Auth (email ya confirmado).
   const supabaseAdmin = createSupabaseAdminClient();
   const { data, error } = await supabaseAdmin.auth.admin.createUser({
     email: datos.email,
@@ -111,7 +142,7 @@ export async function crearUsuario(
     return { error: `No se pudo crear la cuenta: ${error?.message ?? "error"}` };
   }
 
-  // 5) Crear el Usuario del dominio (+ rol inicial). Si falla, revertir Auth.
+  // 6) Crear el Usuario del dominio (+ rol inicial). Si falla, revertir Auth.
   // La cuenta queda SIN activar: la persona define su contraseña por el link.
   const activacion = generarActivacion();
   try {
@@ -298,5 +329,91 @@ export async function editarContacto(
   });
 
   revalidatePath(`/personal/${usuario.id}`);
+  return { ok: true };
+}
+
+/// Cambia el email de un usuario del destacamento (P7). Solo conducción.
+///
+/// El email vive en DOS lados y hay que moverlo en los dos: es el identificador
+/// de login en Supabase Auth y además la columna `@unique` de `Usuario`. Si se
+/// tocara solo la tabla, la persona seguiría entrando con el email viejo y la
+/// app mostraría el nuevo.
+///
+/// La contraseña NO se toca y la cuenta no vuelve a "pendiente": cambiarle el
+/// email a alguien no debería obligarlo a reactivar ni cortarle la sesión.
+export async function cambiarEmail(
+  _prev: EstadoEditar,
+  formData: FormData,
+): Promise<EstadoEditar> {
+  // 1) Autorización en el servidor.
+  const ctx = await getContextoAuth();
+  if (!ctx) return { error: "Sesión no válida." };
+  if (!puedeGestionarUsuarios(ctx)) {
+    return { error: "No tenés permisos para cambiar el email." };
+  }
+
+  // 2) Validación + normalización (S4).
+  const parsed = esquemaEmail.safeParse({
+    usuarioId: formData.get("usuarioId"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const { usuarioId, email } = parsed.data;
+
+  // 3) El usuario tiene que ser del mismo destacamento (multi-destacamento).
+  const usuario = await prisma.usuario.findFirst({
+    where: { id: usuarioId, destacamentoId: ctx.destacamentoId },
+  });
+  if (!usuario) return { error: "Usuario no encontrado." };
+  if (usuario.email === email) {
+    return { error: "Ese ya es el email del usuario." };
+  }
+
+  // 4) Que no lo tenga otro.
+  if (await emailOcupado(email, usuario.id)) {
+    return { error: "Ya existe un usuario con ese email." };
+  }
+
+  // 5) Auth primero, porque es lo que la persona usa para entrar: si esto
+  // falla, no se tocó nada. `email_confirm` deja el mail ya confirmado — la
+  // conducción validó quién es, no hace falta el mail de verificación.
+  const admin = createSupabaseAdminClient();
+  if (usuario.authId) {
+    const { error } = await admin.auth.admin.updateUserById(usuario.authId, {
+      email,
+      email_confirm: true,
+    });
+    if (error) {
+      if (esEmailDuplicado(error.message)) {
+        return { error: "Ya existe un usuario con ese email." };
+      }
+      return { error: `No se pudo cambiar el email: ${error.message}` };
+    }
+  }
+
+  // 6) Y recién ahí la tabla. Si falla, se revierte Auth para no dejar los dos
+  // lados desincronizados (login con uno, app mostrando el otro).
+  try {
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { email },
+    });
+  } catch (e) {
+    if (usuario.authId) {
+      await admin.auth.admin
+        .updateUserById(usuario.authId, {
+          email: usuario.email,
+          email_confirm: true,
+        })
+        .catch(() => {});
+    }
+    const msg = e instanceof Error ? e.message : "error";
+    return { error: `No se pudo guardar el email: ${msg}` };
+  }
+
+  revalidatePath(`/personal/${usuario.id}`);
+  revalidatePath("/personal");
   return { ok: true };
 }

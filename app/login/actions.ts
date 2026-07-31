@@ -4,11 +4,16 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizarEmail } from "@/lib/email";
 
 export type EstadoLogin = { error: string } | null;
 
 const esquemaLogin = z.object({
-  email: z.string().min(3),
+  // S4: se normaliza igual que al crear el usuario, así quien tipea
+  // "Juan@X.com " entra lo mismo. No se valida el formato acá a propósito:
+  // el error del login tiene que ser siempre el mismo mensaje genérico, para
+  // no revelar si un email existe o no.
+  email: z.string().transform(normalizarEmail).pipe(z.string().min(3)),
   password: z.string().min(1),
 });
 

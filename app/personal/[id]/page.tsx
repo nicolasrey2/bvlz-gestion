@@ -13,6 +13,7 @@ import { FormAsignarRol } from "@/components/FormAsignarRol";
 import { RegenerarActivacion } from "@/components/RegenerarActivacion";
 import { FormEditarContacto } from "@/components/FormEditarContacto";
 import { ResetearPassword } from "@/components/ResetearPassword";
+import { CambiarEmail } from "@/components/CambiarEmail";
 import { fmtFecha } from "@/lib/fechas";
 import { BotonAccion } from "@/components/BotonAccion";
 
@@ -91,6 +92,18 @@ export default async function DetalleUsuarioPage({
           <ResetearPassword usuarioId={usuario.id} />
         </section>
       )}
+
+      {/* Email de acceso: es con lo que la persona inicia sesión, por eso va
+          separado de los datos de contacto. */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
+        <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+          Email de acceso
+        </h2>
+        <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+          Con este email inicia sesión. Cambiarlo no modifica su contraseña.
+        </p>
+        <CambiarEmail usuarioId={usuario.id} email={usuario.email} />
+      </section>
 
       {/* Datos de contacto */}
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
