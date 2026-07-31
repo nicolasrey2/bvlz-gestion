@@ -12,9 +12,50 @@ import {
   leerDetalle,
   seccionesPresentes,
   NOMBRE_SECCION,
+  ORGANISMOS_CONCURRENTES,
   type DetalleParte,
   type SeccionParte,
 } from "@/lib/partesDetalle";
+import { leerPersonal, type PersonaParte } from "@/lib/partePersonal";
+
+/// Una de las dos tablas de personal del parte (P6). No se dibuja si está
+/// vacía: un parte sin gente en el cuartel no debería mostrar el título.
+function ListaPersonal({
+  titulo,
+  personas,
+}: {
+  titulo: string;
+  personas: PersonaParte[];
+}) {
+  if (personas.length === 0) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+        {titulo}
+      </p>
+      <ul className="mt-1 flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+        {personas.map((p, i) => (
+          <li key={i} className="flex flex-wrap items-center gap-x-2">
+            <span>{p.nombre}</span>
+            {p.movil && (
+              <span className="text-xs text-zinc-500">móvil {p.movil}</span>
+            )}
+            {p.guardia && <Etiqueta>G</Etiqueta>}
+            {p.bp && <Etiqueta>BP</Etiqueta>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Etiqueta({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+      {children}
+    </span>
+  );
+}
 
 /// Clases de color del badge de estado (ABIERTO ámbar, CERRADO verde).
 const COLOR_ESTADO_PARTE = {
@@ -37,9 +78,7 @@ export default async function DetallePartePage({
   });
   if (!parte) redirect("/partes");
 
-  const personal = Array.isArray(parte.personal)
-    ? (parte.personal as unknown[]).map(String)
-    : [];
+  const personal = leerPersonal(parte.personal);
 
   // El detalle condicional (vehículos, incendio, víctimas, etc.) se guarda
   // como Json — se lee con el helper para no confiar en su forma en runtime.
@@ -121,12 +160,13 @@ export default async function DetallePartePage({
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900">
         <h2 className="mb-2 text-sm font-semibold text-zinc-500">Personal</h2>
-        {personal.length > 0 ? (
-          <ul className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-            {personal.map((p, i) => <li key={i}>{p}</li>)}
-          </ul>
-        ) : (
+        {personal.concurrio.length === 0 && personal.enCuartel.length === 0 ? (
           <p className="text-sm text-zinc-400 italic">Sin personal cargado.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <ListaPersonal titulo="Concurrió" personas={personal.concurrio} />
+            <ListaPersonal titulo="En el cuartel" personas={personal.enCuartel} />
+          </div>
         )}
       </section>
 
@@ -353,17 +393,19 @@ const RENDER_SECCION: Record<SeccionParte, (detalle: DetalleParte) => ReactNode>
 
   concurrentes: (d) => (
     <dl className="flex flex-col gap-2 text-sm">
-      {d.concurrentes?.movilPolicial && (
-        <Dato titulo="Móvil policial" valor={d.concurrentes.movilPolicial} />
-      )}
-      {d.concurrentes?.ambulancia && (
-        <Dato titulo="Ambulancia" valor={d.concurrentes.ambulancia} />
-      )}
-      {d.concurrentes?.defensaCivil && (
-        <Dato titulo="Defensa Civil" valor={d.concurrentes.defensaCivil} />
-      )}
-      {d.concurrentes?.transito && <Dato titulo="Tránsito" valor={d.concurrentes.transito} />}
-      {d.concurrentes?.otros && <Dato titulo="Otros" valor={d.concurrentes.otros} />}
+      {ORGANISMOS_CONCURRENTES.map(({ clave, label }) => {
+        const organismo = d.concurrentes?.[clave];
+        if (!organismo) return null;
+        // Las 4 columnas del formulario se muestran en una línea; se omiten
+        // las vacías para no llenar la ficha de guiones.
+        const detalles = [
+          organismo.numero && `N° ${organismo.numero}`,
+          organismo.aCargo && `a cargo: ${organismo.aCargo}`,
+          organismo.matricula && `matr./leg./DNI: ${organismo.matricula}`,
+          organismo.observaciones,
+        ].filter(Boolean);
+        return <Dato key={clave} titulo={label} valor={detalles.join(" · ")} />;
+      })}
     </dl>
   ),
 };

@@ -232,18 +232,35 @@ PRD §4.4 / §6. Hoy el nombre del cuartelero se tipea a mano en cada guardia
 - **Aceptación:** al armar guardia de cuartelero se elige de un catálogo (con alta
   rápida); las guardias viejas con nombre libre siguen funcionando.
 
-### P6 — Completar el parte oficial (v2) 🟡 · pendiente
-Simplificaciones v1 (TECH §5): `personal` textarea → jerarquía+apellido+chapa+G/BP;
-`concurrentes` string → tabla con N°/a cargo/matrícula/observaciones; separar
-"concurrió" vs "en el cuartel".
-- **Archivos:** `lib/partesDetalle.ts`, `components/FormNuevoParte.tsx`,
-  `app/partes/[id]/page.tsx`, `lib/parteAcroForm.ts`.
-- **Subió de 🟢 a 🟡:** con **P8** hecho, cada campo que falta en el dominio es ahora
-  un casillero visiblemente vacío en el PDF oficial que se archiva. La lista completa
-  de lo que falta está en P8 y sirve de especificación.
-- **El mapeo al PDF ya está escrito**: P6 sólo tiene que estructurar los datos y
-  agregar las líneas correspondientes en `lib/parteAcroForm.ts`; no hay que rehacer
-  nada. Los helpers de tablas y `marcarPersonal()` ya existen.
+### P6 — Completar el parte oficial (v2) 🟡 · hecho *(2026-07-30)*
+> **Resuelto.** Las dos simplificaciones de la v1 quedaron estructuradas:
+> - **Personal** (`lib/partePersonal.ts`, nuevo): `PersonaParte` con nombre, `movil`
+>   (columna Ch.), `guardia` (G) y `bp` (BP), separado en las dos tablas del
+>   formulario — `concurrio` y `enCuartel`. Se llenan las 36 + 21 casillas.
+> - **Concurrentes**: cada organismo pasó de un texto libre a una fila con las 4
+>   columnas del formulario (N°, a cargo, matrícula/legajo/DNI, observaciones).
+>
+> **Sin migración.** Ambos campos viven en columnas `Json`, así que los partes ya
+> cargados se traducen **al leer** (`leerPersonal`, `leerDetalle`): el array de
+> strings viejo pasa a `concurrio`, y el texto suelto de cada organismo pasa a
+> `observaciones`, que es la columna donde iba a parar igual. Hay tests de los dos
+> caminos.
+>
+> **Snapshot, no referencia:** de cada persona se guarda el texto resuelto
+> ("Sargento Herrero") además del `usuarioId` opcional. El parte se archiva; si la
+> persona asciende el mes que viene, el parte de hoy tiene que seguir mostrando el
+> rango que tenía hoy.
+>
+> **Selección de personal con dualidad** (`components/SelectorPersonal.tsx`): un
+> único input con `<datalist>` que sugiere al personal activo del destacamento pero
+> acepta cualquier texto. No hay que elegir "modo": los cuarteleros —que todavía no
+> son usuarios— se cargan a mano, y cuando se registren van a aparecer solos en las
+> sugerencias sin tocar el código. Mismo criterio que el par
+> `Guardia.cuarteleroNombre` / `cuarteleroId`.
+> La lista viaja al servidor como **un solo campo oculto con JSON** (no arrays
+> paralelos, que se desalinean cuando un casillero queda vacío o un checkbox no se
+> envía) y se valida con zod: no se confía en la forma que mande el cliente.
+> Si se carga más gente que casilleros, la UI lo avisa en vez de recortar callada.
 
 ### P7 — Cambiar el email de un usuario 🟡 · hecho *(2026-07-30)*
 > Resuelto: acción `cambiarEmail` en `server/personal.ts` + `components/CambiarEmail.tsx`,
@@ -354,6 +371,24 @@ formulario en papel del DTO 3.
   estructurados) y **P3** (fotos). P6 conviene **antes**: el PDF oficial pide
   jerarquía/chapa/G/BP por separado, que es justo lo que P6 estructura.
 
+### P9 — Campos del formulario oficial que el dominio no tiene 🟢 · pendiente *(alta 2026-07-30)*
+Lo último que queda para que el PDF oficial salga completo. Con **P8** y **P6** hechos,
+estos son los casilleros que siguen en blanco porque el dato no existe en el modelo.
+Es trabajo mecánico: agregar el campo, el input y una línea en `lib/parteAcroForm.ts`.
+- **Encabezado** (columnas nuevas en `ParteIntervencion`, 1 migración): `RUBA nº`,
+  `Certific.`, `Informe nº`, `Jurisdicc. polic.` (lista de 11 opciones),
+  `P. efectuado`, `Ubicación` (link a Google Maps), `Panorama` (lista N/A|1..4).
+- **Tiempos:** `Hora circunscripto`, `dominado`, `extinguido`, `finalización` — hoy
+  sólo hay aviso / llegada / regreso.
+- **Vehículos** (en `detalle`): `Nº y origen del registro`, `Otros datos`,
+  `Rodado tipo` (lista de 22 opciones).
+- **Inmueble:** `Nº de piso`. **Datos complementarios:** `Arrendatario/a` y su DNI.
+- **Firmas:** `Dpto. Técnico`.
+- La tabla de concurrentes tiene una **sexta fila "Otros"** que el dominio no usa
+  (`ORGANISMOS_CONCURRENTES` define 5); queda libre para completar a mano.
+- **Aceptación:** un parte completo llena el formulario oficial sin casilleros
+  vacíos por falta de campo.
+
 ## B. Smells / mejoras técnicas
 
 ### S1 — La baja lógica no corta el acceso 🔴 · hecho *(2026-07-30)*
@@ -394,6 +429,17 @@ controlan en app-level sin constraint DB.
 
 ### S6 — Listados sin paginación 🟢 · pendiente
 `tareas`, `partes`, `guardias` traen todo (solo `novedades` limita).
+
+### S8 — `editarParte` existe pero no hay UI que lo llame 🟡 · pendiente *(alta 2026-07-30)*
+`server/partes.ts:153` define `editarParte` con permisos y todo, pero **ningún
+componente la usa** (verificado con grep en todo el repo). En la práctica **un parte
+no se puede editar**: se crea y se cierra. No hay página `/partes/[id]/editar` ni
+`FormEditarParte`, a diferencia de tareas y guardias, que sí tienen su form de edición.
+- **Impacto real:** el PRD plantea el parte como algo que se completa en varias
+  pasadas; hoy hay que hacerlo de una. Se nota más desde **P6**, que agregó campos.
+- **Opciones:** construir el form de edición (reutilizando `FormNuevoParte` con
+  valores iniciales, que ya está preparado — `SelectorPersonal` acepta `inicial`), o
+  borrar la acción muerta. Lo primero es lo que pide el PRD.
 
 ### S7 — Ruido de "alta de guardia" en el cuaderno 🟢 · pendiente
 Cargar el cronograma mensual inunda la timeline con "Alta de guardia"

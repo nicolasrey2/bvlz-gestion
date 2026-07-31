@@ -8,6 +8,7 @@ import { getContextoAuth } from "@/lib/auth";
 import { esConduccion, puedeCrearParte } from "@/lib/permisos";
 import { TIPOS_SINIESTRO } from "@/lib/dominio";
 import { parsearDetalleFormData } from "@/lib/partesDetalle";
+import { leerPersonalDeFormulario } from "@/lib/partePersonal";
 import type { TipoSiniestro, Prisma } from "@/generated/prisma/client";
 
 export type EstadoForm = { error: string } | null;
@@ -90,12 +91,9 @@ function datosParaGuardar(d: DatosParte) {
     bomberos: aEntero(d.bomberos),
     unidades: d.unidades ?? null,
     descripcion: d.descripcion ?? null,
-    personal: d.personal
-      ? d.personal
-          .split("\n")
-          .map((linea) => linea.trim())
-          .filter(Boolean)
-      : [],
+    // El personal llega como JSON desde SelectorPersonal (P6) y se valida con
+    // zod antes de guardarse: nunca se confía en la forma que mande el cliente.
+    personal: leerPersonalDeFormulario(d.personal),
     datosTomadosPor: d.datosTomadosPor ?? null,
     oficialActuante: d.oficialActuante ?? null,
     jefeCuerpo: d.jefeCuerpo ?? null,

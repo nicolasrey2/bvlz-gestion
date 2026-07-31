@@ -87,16 +87,38 @@ export type Ferroviario = {
   nroCabina?: string;
 };
 
-/// Organismos que concurrieron junto a Bomberos (formulario oficial, sección
-/// CONCURRENTES). Aplica a todos los tipos de siniestro — cada campo es
-/// texto libre (ej. "N° / a cargo / observaciones").
-export type Concurrentes = {
-  movilPolicial?: string;
-  ambulancia?: string;
-  defensaCivil?: string;
-  transito?: string;
-  otros?: string;
+/// Una fila de la tabla CONCURRENTES del formulario oficial: cada organismo
+/// tiene su número de móvil, quién estaba a cargo, su matrícula/legajo/DNI y
+/// observaciones (P6).
+export type OrganismoConcurrente = {
+  numero?: string;
+  aCargo?: string;
+  matricula?: string;
+  observaciones?: string;
 };
+
+/// Organismos que concurrieron junto a Bomberos (formulario oficial, sección
+/// CONCURRENTES). Aplica a todos los tipos de siniestro. Las claves son las
+/// filas impresas en el formulario, en ese orden.
+export type Concurrentes = {
+  movilPolicial?: OrganismoConcurrente;
+  ambulancia?: OrganismoConcurrente;
+  defensaCivil?: OrganismoConcurrente;
+  transito?: OrganismoConcurrente;
+  otros?: OrganismoConcurrente;
+};
+
+/// Claves de `Concurrentes` en el orden de las filas del formulario.
+export const ORGANISMOS_CONCURRENTES = [
+  { clave: "movilPolicial", label: "Móvil policial" },
+  { clave: "ambulancia", label: "Ambulancia" },
+  { clave: "defensaCivil", label: "Defensa Civil" },
+  { clave: "transito", label: "Tránsito" },
+  { clave: "otros", label: "Otros" },
+] as const satisfies ReadonlyArray<{
+  clave: keyof Concurrentes;
+  label: string;
+}>;
 
 /// Todas las secciones son opcionales: un parte puede quedar incompleto y
 /// completarse en ediciones posteriores. Se persiste tal cual en
@@ -285,14 +307,26 @@ function leerFerroviario(formData: FormData): Ferroviario | undefined {
   });
 }
 
-function leerConcurrentes(formData: FormData): Concurrentes | undefined {
-  return objetoConDatos<Concurrentes>({
-    movilPolicial: campoTexto(formData, "conc_movilPolicial"),
-    ambulancia: campoTexto(formData, "conc_ambulancia"),
-    defensaCivil: campoTexto(formData, "conc_defensaCivil"),
-    transito: campoTexto(formData, "conc_transito"),
-    otros: campoTexto(formData, "conc_otros"),
+function leerOrganismo(
+  formData: FormData,
+  clave: string,
+): OrganismoConcurrente | undefined {
+  return objetoConDatos<OrganismoConcurrente>({
+    numero: campoTexto(formData, `conc_${clave}_numero`),
+    aCargo: campoTexto(formData, `conc_${clave}_aCargo`),
+    matricula: campoTexto(formData, `conc_${clave}_matricula`),
+    observaciones: campoTexto(formData, `conc_${clave}_observaciones`),
   });
+}
+
+function leerConcurrentes(formData: FormData): Concurrentes | undefined {
+  const filas = Object.fromEntries(
+    ORGANISMOS_CONCURRENTES.map(({ clave }) => [
+      clave,
+      leerOrganismo(formData, clave),
+    ]),
+  ) as Concurrentes;
+  return objetoConDatos(filas);
 }
 
 /// Un parseador por sección: mapa de estrategias en vez de un switch que
@@ -326,9 +360,41 @@ export function parsearDetalleFormData(formData: FormData, tipo: TipoSiniestro):
 /// Type guard laxo: el `detalle` viene de un campo `Json?` de Prisma, así que
 /// en runtime puede ser `null`, un array o cualquier cosa vieja. Si no tiene
 /// la forma mínima esperada (objeto plano), se trata como "sin detalle".
+/// Antes de P6 cada organismo concurrente era un texto libre; ahora es una fila
+/// con 4 columnas. Los partes ya cargados se siguen leyendo: el texto viejo
+/// pasa a "observaciones", que es la columna donde iba a parar en el PDF.
+function normalizarOrganismo(valor: unknown): OrganismoConcurrente | undefined {
+  if (typeof valor === "string") {
+    const texto = valor.trim();
+    return texto ? { observaciones: texto } : undefined;
+  }
+  if (valor && typeof valor === "object" && !Array.isArray(valor)) {
+    return valor as OrganismoConcurrente;
+  }
+  return undefined;
+}
+
+function normalizarConcurrentes(valor: unknown): Concurrentes | undefined {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)) return undefined;
+  const origen = valor as Record<string, unknown>;
+  const filas = Object.fromEntries(
+    ORGANISMOS_CONCURRENTES.map(({ clave }) => [
+      clave,
+      normalizarOrganismo(origen[clave]),
+    ]),
+  ) as Concurrentes;
+  return objetoConDatos(filas);
+}
+
 export function leerDetalle(valor: unknown): DetalleParte {
   if (!valor || typeof valor !== "object" || Array.isArray(valor)) return {};
-  return valor as DetalleParte;
+  const detalle = valor as DetalleParte;
+  // `concurrentes` es la única sección que cambió de forma en P6, así que es
+  // la única que hay que normalizar al leer.
+  return {
+    ...detalle,
+    concurrentes: normalizarConcurrentes(detalle.concurrentes),
+  };
 }
 
 /// Qué secciones tienen datos cargados (para decidir qué tarjetas mostrar en

@@ -1,5 +1,12 @@
 import { PDFCheckBox, PDFDropdown, PDFTextField, type PDFForm } from "pdf-lib";
-import { leerDetalle } from "./partesDetalle";
+import { leerDetalle, ORGANISMOS_CONCURRENTES } from "./partesDetalle";
+import {
+  CUPO_CONCURRIO,
+  CUPO_EN_CUARTEL,
+  PERSONAL_VACIO,
+  type PersonaParte,
+  type PersonalParte,
+} from "./partePersonal";
 
 /// Relleno del formulario oficial del DTO 3 (`docs/parte-intervencion-DTO3.pdf`)
 /// con los datos de un parte (P8).
@@ -31,7 +38,7 @@ export type ParteParaFormulario = {
   bomberos: number | null;
   unidades: string | null;
   descripcion: string | null;
-  personal: string[];
+  personal: PersonalParte;
   datosTomadosPor: string | null;
   oficialActuante: string | null;
   jefeCuerpo: string | null;
@@ -108,21 +115,33 @@ const VEHICULOS = ["0", "1"] as const;
 const VICTIMAS = ["0.0", "0.1", "1.0", "1.1"] as const;
 const VICTIMAS_FATALES = ["0", "1"] as const;
 
-/// Filas de la tabla CONCURRENTES, en el orden impreso en el formulario.
-/// Las dos últimas son "Otros"; el dominio solo tiene una, así que la 5 queda
-/// libre para completar a mano.
-const FILA_CONCURRENTE = {
-  movilPolicial: "0",
-  ambulancia: "1",
-  defensaCivil: "2",
-  transito: "3",
-  otros: "4",
+/// Columnas de la tabla CONCURRENTES. La fila es el índice del organismo en
+/// `ORGANISMOS_CONCURRENTES` (el formulario imprime una fila por organismo, en
+/// ese orden; la sexta es un segundo "Otros" que queda para completar a mano).
+const COLUMNA_CONCURRENTE = {
+  numero: "Nº móvil policial",
+  aCargo: "A cargo - Policía",
+  matricula: "Matrícula/legajo/DNI - Policía",
+  observaciones: "Observaciones móvil policial",
 } as const;
 
-/// Tabla PERSONAL QUE CONCURRIÓ: 3 columnas × 12 filas. Se llena hacia abajo
-/// por columna (igual que a mano), que es el orden del ejemplo de la plantilla.
-const PERSONAL_COLUMNAS = 3;
-const PERSONAL_FILAS = 12;
+/// Las dos tablas de personal. Ambas se llenan hacia abajo por columna (igual
+/// que a mano), que es el orden del ejemplo que trae la plantilla.
+const TABLA_CONCURRIO = {
+  filas: 12,
+  nombre: (c: number, f: number) => `Jerarquía y nombre.${c}.${f}`,
+  movil: (c: number, f: number) => `Chofer.${c}.${f}`,
+  guardia: (c: number, f: number) => `Guardia.${c}.${f}`,
+  bp: (c: number, f: number) => `BP.${c}.${f}`,
+};
+
+const TABLA_EN_CUARTEL = {
+  filas: 7,
+  nombre: (c: number, f: number) => `En el cuartel 1.0.${c}.${f}`,
+  movil: null,
+  guardia: (c: number, f: number) => `G 1.0.${c}.${f}`,
+  bp: (c: number, f: number) => `BP en el cuartel.0.${c}.${f}`,
+};
 
 /// Acumula los campos que no se encontraron en la plantilla, para que el
 /// llamador (y el test) se entere si el DTO 3 la cambió.
@@ -185,6 +204,34 @@ function marcar(ctx: Contexto, campo: string) {
   }
 }
 
+type TablaPersonal = {
+  filas: number;
+  nombre: (columna: number, fila: number) => string;
+  /// Sólo la tabla de "concurrió" tiene columna Ch. (nº de móvil).
+  movil: ((columna: number, fila: number) => string) | null;
+  guardia: (columna: number, fila: number) => string;
+  bp: (columna: number, fila: number) => string;
+};
+
+/// Vuelca una lista de personas en una de las dos tablas del formulario,
+/// llenando hacia abajo por columna. Lo que excede los casilleros no entra en
+/// el PDF; la UI avisa antes de llegar acá (`excedeElFormulario`).
+function llenarTablaPersonal(
+  ctx: Contexto,
+  tabla: TablaPersonal,
+  personas: PersonaParte[],
+  cupo: number,
+) {
+  personas.slice(0, cupo).forEach((persona, i) => {
+    const columna = Math.floor(i / tabla.filas);
+    const fila = i % tabla.filas;
+    texto(ctx, tabla.nombre(columna, fila), persona.nombre);
+    if (tabla.movil) texto(ctx, tabla.movil(columna, fila), persona.movil);
+    if (persona.guardia) marcar(ctx, tabla.guardia(columna, fila));
+    if (persona.bp) marcar(ctx, tabla.bp(columna, fila));
+  });
+}
+
 /// Fecha en el formato del formulario (dd/mm/aaaa), en hora argentina para que
 /// un parte cargado cerca de medianoche no se corra de día.
 function fmtFechaParte(fecha: Date): string {
@@ -237,14 +284,21 @@ export function llenarFormularioParte(
   texto(ctx, CAMPO.unidades, parte.unidades);
   texto(ctx, CAMPO.descripcion, parte.descripcion);
 
-  // --- Concurrentes: el dominio guarda un texto libre por organismo; en el
-  // formulario cada uno es una fila con 4 columnas, así que va a Observaciones.
+  // --- Concurrentes: una fila por organismo, con sus 4 columnas.
   const concurrentes = detalle.concurrentes;
   if (concurrentes) {
-    for (const [clave, fila] of Object.entries(FILA_CONCURRENTE)) {
-      const valor = concurrentes[clave as keyof typeof concurrentes];
-      texto(ctx, `Observaciones móvil policial.${fila}`, valor);
-    }
+    ORGANISMOS_CONCURRENTES.forEach(({ clave }, fila) => {
+      const organismo = concurrentes[clave];
+      if (!organismo) return;
+      texto(ctx, `${COLUMNA_CONCURRENTE.numero}.${fila}`, organismo.numero);
+      texto(ctx, `${COLUMNA_CONCURRENTE.aCargo}.${fila}`, organismo.aCargo);
+      texto(ctx, `${COLUMNA_CONCURRENTE.matricula}.${fila}`, organismo.matricula);
+      texto(
+        ctx,
+        `${COLUMNA_CONCURRENTE.observaciones}.${fila}`,
+        organismo.observaciones,
+      );
+    });
   }
 
   lista(ctx, LISTA.condicionesClimaticas, detalle.condicionesClimaticas);
@@ -337,36 +391,15 @@ export function llenarFormularioParte(
     texto(ctx, CAMPO.ferroNroCabina, ferro.nroCabina);
   }
 
-  // --- Personal que concurrió ---
-  // Hoy el dominio guarda solo el texto de cada persona, así que se completa
-  // la columna "Jerarquía y apellido". Las columnas Ch. (nº de móvil), G y BP
-  // quedan en blanco hasta que P6 estructure el personal.
-  parte.personal
-    .slice(0, PERSONAL_COLUMNAS * PERSONAL_FILAS)
-    .forEach((persona, i) => {
-      const columna = Math.floor(i / PERSONAL_FILAS);
-      const fila = i % PERSONAL_FILAS;
-      texto(ctx, `Jerarquía y nombre.${columna}.${fila}`, persona);
-    });
+  // --- Personal (las dos tablas del formulario) ---
+  const personal = parte.personal ?? PERSONAL_VACIO;
+  llenarTablaPersonal(ctx, TABLA_CONCURRIO, personal.concurrio, CUPO_CONCURRIO);
+  llenarTablaPersonal(ctx, TABLA_EN_CUARTEL, personal.enCuartel, CUPO_EN_CUARTEL);
 
   // --- Firmas ---
   texto(ctx, CAMPO.datosTomadosPor, parte.datosTomadosPor);
   texto(ctx, CAMPO.firmaOficial, parte.oficialActuante);
   texto(ctx, CAMPO.firmaJefe, parte.jefeCuerpo);
 
-  return { camposFaltantes: ctx.faltantes };
-}
-
-/// Marca un casillero de la tabla de personal (G / BP). Queda expuesto para
-/// cuando P6 estructure el personal; hoy nadie lo llama.
-export function marcarPersonal(
-  form: PDFForm,
-  tipo: "G" | "BP",
-  columna: number,
-  fila: number,
-) {
-  const ctx: Contexto = { form, faltantes: [] };
-  const campo = tipo === "G" ? "Guardia" : "BP";
-  marcar(ctx, `${campo}.${columna}.${fila}`);
   return { camposFaltantes: ctx.faltantes };
 }

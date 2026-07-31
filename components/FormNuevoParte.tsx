@@ -3,7 +3,15 @@
 import { useActionState, useState } from "react";
 import { crearParte, type EstadoForm } from "@/server/partes";
 import { TIPOS_SINIESTRO } from "@/lib/dominio";
-import { SECCIONES_POR_SINIESTRO, type SeccionParte } from "@/lib/partesDetalle";
+import {
+  ORGANISMOS_CONCURRENTES,
+  SECCIONES_POR_SINIESTRO,
+  type SeccionParte,
+} from "@/lib/partesDetalle";
+import {
+  SelectorPersonal,
+  type SugerenciaPersonal,
+} from "@/components/SelectorPersonal";
 import type { TipoSiniestro } from "@/generated/prisma/client";
 
 const input =
@@ -17,7 +25,14 @@ const subLegend = "text-xs font-semibold tracking-wide text-zinc-400 uppercase";
 const bloque =
   "flex flex-col gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700";
 
-export function FormNuevoParte() {
+export function FormNuevoParte({
+  sugerenciasPersonal,
+}: {
+  /// Personal del destacamento, para autocompletar la carga (P6). Los
+  /// cuarteleros no están registrados todavía, así que el campo igual acepta
+  /// texto libre — ver `SelectorPersonal`.
+  sugerenciasPersonal: SugerenciaPersonal[];
+}) {
   const [state, action, pending] = useActionState<EstadoForm, FormData>(
     crearParte,
     null,
@@ -352,63 +367,39 @@ export function FormNuevoParte() {
         </fieldset>
       )}
 
-      {/* Concurrentes — aplica a todos los tipos de siniestro */}
+      {/* Concurrentes — aplica a todos los tipos de siniestro. Una fila por
+          organismo con las 4 columnas del formulario oficial (P6). */}
       <fieldset className="flex flex-col gap-3">
         <legend className={legend}>Concurrentes</legend>
-        <label className={label}>
-          Móvil policial
-          <input
-            name="conc_movilPolicial"
-            placeholder="N° / a cargo de / observaciones"
-            className={input}
-          />
-        </label>
-        <label className={label}>
-          Ambulancia
-          <input
-            name="conc_ambulancia"
-            placeholder="N° / a cargo de / observaciones"
-            className={input}
-          />
-        </label>
-        <label className={label}>
-          Defensa Civil
-          <input
-            name="conc_defensaCivil"
-            placeholder="N° / a cargo de / observaciones"
-            className={input}
-          />
-        </label>
-        <label className={label}>
-          Tránsito
-          <input
-            name="conc_transito"
-            placeholder="N° / a cargo de / observaciones"
-            className={input}
-          />
-        </label>
-        <label className={label}>
-          Otros
-          <input
-            name="conc_otros"
-            placeholder="N° / a cargo de / observaciones"
-            className={input}
-          />
-        </label>
+        {ORGANISMOS_CONCURRENTES.map(({ clave, label: nombre }) => (
+          <div key={clave} className={bloque}>
+            <p className={subLegend}>{nombre}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className={label}>
+                N°
+                <input name={`conc_${clave}_numero`} className={input} />
+              </label>
+              <label className={label}>
+                Matr./Leg./DNI
+                <input name={`conc_${clave}_matricula`} className={input} />
+              </label>
+            </div>
+            <label className={label}>
+              A cargo
+              <input name={`conc_${clave}_aCargo`} className={input} />
+            </label>
+            <label className={label}>
+              Observaciones
+              <input name={`conc_${clave}_observaciones`} className={input} />
+            </label>
+          </div>
+        ))}
       </fieldset>
 
-      {/* Personal */}
+      {/* Personal — las dos tablas del formulario oficial (P6). */}
       <fieldset className="flex flex-col gap-3">
         <legend className={legend}>Personal</legend>
-        <label className={label}>
-          Personal que concurrió (una persona por línea)
-          <textarea
-            name="personal"
-            rows={4}
-            placeholder={"Cabo Pérez\nBombero Gómez"}
-            className={input}
-          />
-        </label>
+        <SelectorPersonal sugerencias={sugerenciasPersonal} />
       </fieldset>
 
       {/* Firmas */}

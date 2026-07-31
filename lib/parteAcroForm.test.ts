@@ -7,6 +7,7 @@ import {
   llenarFormularioParte,
   type ParteParaFormulario,
 } from "./parteAcroForm";
+import { PERSONAL_VACIO } from "./partePersonal";
 
 /// Estos tests corren contra la plantilla oficial de verdad
 /// (`docs/parte-intervencion-DTO3.pdf`), no contra un mock: el valor está
@@ -41,7 +42,7 @@ const PARTE_MINIMO: ParteParaFormulario = {
   bomberos: null,
   unidades: null,
   descripcion: null,
-  personal: [],
+  personal: PERSONAL_VACIO,
   datosTomadosPor: null,
   oficialActuante: null,
   jefeCuerpo: null,
@@ -83,7 +84,7 @@ describe("llenarFormularioParte — el mapeo sigue vigente", () => {
         objeto: "Incendio chico de vivienda",
         localidad: "Llavallol",
         direccion: "Av. Antártida Argentina 1234",
-        personal: ["Sargento Herrero", "Cabo Moser"],
+        personal: { concurrio: [{ nombre: "Sargento Herrero" }, { nombre: "Cabo Moser" }], enCuartel: [] },
         detalle: {
           condicionesClimaticas: "Soleado",
           incendio: { origen: "Cocina", causa: "Falla eléctrica" },
@@ -235,33 +236,49 @@ describe("llenarFormularioParte — tablas repetidas", () => {
     expect(form.getTextField("Chapa vehículo 1.1").getText()).toBe("XY987ZW");
   });
 
-  it("manda cada organismo concurrente a su fila, en Observaciones", async () => {
+  it("llena las 4 columnas de cada organismo concurrente, en su fila", async () => {
     const form = await formularioLimpio();
     llenarFormularioParte(
       form,
       parteCon({
         detalle: {
           concurrentes: {
-            movilPolicial: "Móvil 445",
-            ambulancia: "SAME 12",
-            defensaCivil: "Presente",
-            transito: "2 agentes",
-            otros: "Aguas",
+            movilPolicial: {
+              numero: "445",
+              aCargo: "Of. Díaz",
+              matricula: "L-9921",
+              observaciones: "Corte de calle",
+            },
+            otros: { observaciones: "Aguas" },
           },
         },
       }),
     );
-    expect(form.getTextField("Observaciones móvil policial.0").getText()).toBe("Móvil 445");
-    expect(form.getTextField("Observaciones móvil policial.1").getText()).toBe("SAME 12");
-    expect(form.getTextField("Observaciones móvil policial.2").getText()).toBe("Presente");
-    expect(form.getTextField("Observaciones móvil policial.3").getText()).toBe("2 agentes");
+    expect(form.getTextField("Nº móvil policial.0").getText()).toBe("445");
+    expect(form.getTextField("A cargo - Policía.0").getText()).toBe("Of. Díaz");
+    expect(form.getTextField("Matrícula/legajo/DNI - Policía.0").getText()).toBe("L-9921");
+    expect(form.getTextField("Observaciones móvil policial.0").getText()).toBe("Corte de calle");
+    // "Otros" es la quinta fila del formulario.
     expect(form.getTextField("Observaciones móvil policial.4").getText()).toBe("Aguas");
+  });
+
+  it("acepta un parte viejo con el organismo como texto suelto", async () => {
+    // Antes de P6 cada organismo era un string; esos partes tienen que seguir
+    // exportándose, con el texto en la columna Observaciones.
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({ detalle: { concurrentes: { ambulancia: "SAME 12" } } }),
+    );
+    expect(form.getTextField("Observaciones móvil policial.1").getText()).toBe("SAME 12");
   });
 
   it("llena el personal hacia abajo y salta a la columna siguiente en la fila 13", async () => {
     const form = await formularioLimpio();
-    const personal = Array.from({ length: 14 }, (_, i) => `Bombero ${i + 1}`);
-    llenarFormularioParte(form, parteCon({ personal }));
+    const concurrio = Array.from({ length: 14 }, (_, i) => ({
+      nombre: `Bombero ${i + 1}`,
+    }));
+    llenarFormularioParte(form, parteCon({ personal: { concurrio, enCuartel: [] } }));
 
     expect(form.getTextField("Jerarquía y nombre.0.0").getText()).toBe("Bombero 1");
     expect(form.getTextField("Jerarquía y nombre.0.11").getText()).toBe("Bombero 12");
@@ -269,13 +286,67 @@ describe("llenarFormularioParte — tablas repetidas", () => {
     expect(form.getTextField("Jerarquía y nombre.1.1").getText()).toBe("Bombero 14");
   });
 
-  it("no explota si hay más personal que casilleros (36)", async () => {
+  it("marca las columnas Ch., G y BP de quien concurrió", async () => {
     const form = await formularioLimpio();
-    const personal = Array.from({ length: 50 }, (_, i) => `Bombero ${i + 1}`);
-    const { camposFaltantes } = llenarFormularioParte(form, parteCon({ personal }));
+    llenarFormularioParte(
+      form,
+      parteCon({
+        personal: {
+          concurrio: [
+            { nombre: "Cuartelero Chiesa", movil: "16", guardia: true },
+            { nombre: "Bombero Álvarez", bp: true },
+          ],
+          enCuartel: [],
+        },
+      }),
+    );
+    expect(form.getTextField("Chofer.0.0").getText()).toBe("16");
+    expect(form.getCheckBox("Guardia.0.0").isChecked()).toBe(true);
+    expect(form.getCheckBox("BP.0.0").isChecked()).toBe(false);
+    expect(form.getCheckBox("BP.0.1").isChecked()).toBe(true);
+    expect(form.getCheckBox("Guardia.0.1").isChecked()).toBe(false);
+  });
+
+  it("llena la tabla de personal en el cuartel, que no tiene columna Ch.", async () => {
+    const form = await formularioLimpio();
+    llenarFormularioParte(
+      form,
+      parteCon({
+        personal: {
+          concurrio: [],
+          enCuartel: [
+            { nombre: "Cabo Domínguez", guardia: true },
+            { nombre: "Bombero Sosa", bp: true },
+          ],
+        },
+      }),
+    );
+    expect(form.getTextField("En el cuartel 1.0.0.0").getText()).toBe("Cabo Domínguez");
+    expect(form.getCheckBox("G 1.0.0.0").isChecked()).toBe(true);
+    expect(form.getTextField("En el cuartel 1.0.0.1").getText()).toBe("Bombero Sosa");
+    expect(form.getCheckBox("BP en el cuartel.0.0.1").isChecked()).toBe(true);
+    // La tabla del cuartel tiene 7 filas por columna, no 12.
+    const enCuartel = Array.from({ length: 8 }, (_, i) => ({ nombre: `P${i + 1}` }));
+    const form2 = await formularioLimpio();
+    llenarFormularioParte(form2, parteCon({ personal: { concurrio: [], enCuartel } }));
+    expect(form2.getTextField("En el cuartel 1.0.0.6").getText()).toBe("P7");
+    expect(form2.getTextField("En el cuartel 1.0.1.0").getText()).toBe("P8");
+  });
+
+  it("no explota si hay más personal que casilleros", async () => {
+    const form = await formularioLimpio();
+    const concurrio = Array.from({ length: 50 }, (_, i) => ({
+      nombre: `Bombero ${i + 1}`,
+    }));
+    const enCuartel = Array.from({ length: 30 }, (_, i) => ({ nombre: `C${i + 1}` }));
+    const { camposFaltantes } = llenarFormularioParte(
+      form,
+      parteCon({ personal: { concurrio, enCuartel } }),
+    );
 
     expect(camposFaltantes).toEqual([]);
     expect(form.getTextField("Jerarquía y nombre.2.11").getText()).toBe("Bombero 36");
+    expect(form.getTextField("En el cuartel 1.0.2.6").getText()).toBe("C21");
   });
 
   it("no explota si hay más víctimas que casilleros", async () => {
@@ -299,7 +370,7 @@ describe("el PDF resultante se puede generar", () => {
       parteCon({
         direccion: "Av. Antártida Argentina 1234",
         descripcion: "Línea de 38mm; ventilación. Nº 12.",
-        personal: ["Sargento Herrero", "Bombero Álvarez"],
+        personal: { concurrio: [{ nombre: "Sargento Herrero" }, { nombre: "Bombero Álvarez" }], enCuartel: [] },
       }),
     );
     form.flatten();

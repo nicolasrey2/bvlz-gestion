@@ -8,6 +8,7 @@ import {
   llenarFormularioParte,
   type ParteParaFormulario,
 } from "@/lib/parteAcroForm";
+import { leerPersonal } from "@/lib/partePersonal";
 
 /// Plantilla oficial del DTO 3. Se lee del repo en cada request (es un archivo
 /// de ~370 KB y hay que partir siempre de una copia limpia: `PDFDocument.load`
@@ -50,9 +51,7 @@ export async function GET(
     bomberos: parte.bomberos,
     unidades: parte.unidades,
     descripcion: parte.descripcion,
-    personal: Array.isArray(parte.personal)
-      ? (parte.personal as unknown[]).map(String)
-      : [],
+    personal: leerPersonal(parte.personal),
     datosTomadosPor: parte.datosTomadosPor,
     oficialActuante: parte.oficialActuante,
     jefeCuerpo: parte.jefeCuerpo,

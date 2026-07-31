@@ -106,6 +106,63 @@ describe("leerDetalle", () => {
   });
 });
 
+// --- concurrentes (P6) --------------------------------------------------------
+
+describe("concurrentes", () => {
+  it("parsea las 4 columnas de cada organismo desde el formulario", () => {
+    const fd = new FormData();
+    fd.set("conc_movilPolicial_numero", "445");
+    fd.set("conc_movilPolicial_aCargo", "Of. Díaz");
+    fd.set("conc_movilPolicial_matricula", "L-9921");
+    fd.set("conc_movilPolicial_observaciones", "Corte de calle");
+    fd.set("conc_ambulancia_numero", "12");
+
+    const detalle = parsearDetalleFormData(fd, "OTRO" as TipoSiniestro);
+
+    expect(detalle.concurrentes?.movilPolicial).toEqual({
+      numero: "445",
+      aCargo: "Of. Díaz",
+      matricula: "L-9921",
+      observaciones: "Corte de calle",
+    });
+    expect(detalle.concurrentes?.ambulancia).toEqual({ numero: "12" });
+    // Un organismo sin ningún dato no se guarda.
+    expect(detalle.concurrentes?.transito).toBeUndefined();
+  });
+
+  it("no guarda la sección si no se cargó ningún organismo", () => {
+    const detalle = parsearDetalleFormData(new FormData(), "OTRO" as TipoSiniestro);
+    expect(detalle.concurrentes).toBeUndefined();
+  });
+
+  it("migra al vuelo los partes viejos, donde el organismo era un texto", () => {
+    // Antes de P6 se guardaba { movilPolicial: "Móvil 445" }. Esos partes
+    // tienen que seguir leyéndose, con el texto en observaciones.
+    const detalle = leerDetalle({
+      concurrentes: { movilPolicial: "Móvil 445", ambulancia: "SAME 12" },
+    });
+    expect(detalle.concurrentes?.movilPolicial).toEqual({
+      observaciones: "Móvil 445",
+    });
+    expect(detalle.concurrentes?.ambulancia).toEqual({
+      observaciones: "SAME 12",
+    });
+  });
+
+  it("ignora un texto vacío de un parte viejo", () => {
+    const detalle = leerDetalle({ concurrentes: { movilPolicial: "   " } });
+    expect(detalle.concurrentes).toBeUndefined();
+  });
+
+  it("deja intacto el formato nuevo al leer", () => {
+    const concurrentes = { transito: { numero: "3", aCargo: "Insp. Ruiz" } };
+    expect(leerDetalle({ concurrentes }).concurrentes?.transito).toEqual({
+      numero: "3",
+      aCargo: "Insp. Ruiz",
+    });
+  });
+});
+
 // --- seccionesPresentes -------------------------------------------------------
 
 describe("seccionesPresentes", () => {

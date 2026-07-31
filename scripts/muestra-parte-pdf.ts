@@ -27,13 +27,19 @@ const PARTE: ParteParaFormulario = {
   unidades: "16, 22",
   descripcion:
     "Al arribo se observa fuego en cocina de vivienda de material. Se extingue con línea de 38mm, se ventila y se entrega el inmueble al propietario. Sin víctimas.",
-  personal: [
-    "Sargento Herrero",
-    "Cabo Moser",
-    "Cuartelero Chiesa",
-    "Bombero Álvarez",
-    "Bombero Nuñez",
-  ],
+  personal: {
+    concurrio: [
+      { nombre: "Sargento Herrero", guardia: true },
+      { nombre: "Cabo Moser", guardia: true },
+      { nombre: "Cuartelero Chiesa", movil: "16", guardia: true },
+      { nombre: "Bombero Álvarez", bp: true },
+      { nombre: "Bombero Nuñez", movil: "22", guardia: true, bp: true },
+    ],
+    enCuartel: [
+      { nombre: "Cabo Domínguez", guardia: true },
+      { nombre: "Bombero Sosa", bp: true },
+    ],
+  },
   datosTomadosPor: "Cabo Moser",
   oficialActuante: "Sargento Herrero",
   jefeCuerpo: "Comandante Giménez",
@@ -84,9 +90,14 @@ const PARTE: ParteParaFormulario = {
       },
     ],
     concurrentes: {
-      movilPolicial: "Móvil 445, a cargo Of. Díaz",
-      ambulancia: "SAME 12",
-      defensaCivil: "Presente",
+      movilPolicial: {
+        numero: "445",
+        aCargo: "Of. Díaz",
+        matricula: "L-9921",
+        observaciones: "Corte de calle",
+      },
+      ambulancia: { numero: "12", aCargo: "Dra. Ruiz" },
+      defensaCivil: { observaciones: "Presente" },
     },
   },
 };
