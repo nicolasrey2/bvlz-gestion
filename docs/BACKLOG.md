@@ -411,6 +411,26 @@ formulario en papel del DTO 3.
 > del PDF que ya no existen, el otro campos del PDF que el dominio no llena.
 > Herramientas del relevamiento: `pnpm pdf:campos` y `pnpm pdf:muestra`.
 
+### P10 — Tu próxima guardia en la home 🟡 · hecho *(2026-07-31)*
+> Recordatorio visual en la pantalla principal: **día de la semana, número y mes**
+> ("Dom 2 ago") en grande, con el tipo y horario de la guardia y una etiqueta de cuánto
+> falta ("Hoy" / "Mañana" / "En 3 días"). Toda la tarjeta linkea al calendario. Antes el
+> dato que más se venía a buscar a la app obligaba a entrar al calendario del mes.
+>
+> - **Se consulta por `GuardiaParticipante`, no por `Guardia`**
+>   (`server/guardiasConsultas.ts`): es lo que refleja las cesiones, porque
+>   `cederGuardia` borra la fila de quien cede. Una guardia cedida deja de aparecer sin
+>   lógica extra. Una sola consulta indexada (`@@index([usuarioId])`).
+> - **Antes de las 08:00 también cuenta la guardia de ayer:** la interna va de 22:00 a
+>   08:00, así que pasada la medianoche sigue en curso. Sin eso, quien está de guardia a
+>   las 2 de la mañana abriría la app y leería "no tenés guardias programadas" (se
+>   muestra "En curso"). La regla vive en `desdeParaProximaGuardia()`, pura y con test.
+> - Helpers nuevos en `lib/fechas.ts`, todos en UTC porque `Guardia.fecha` es una fecha
+>   "día": `fmtDiaNumeroMes`, `diasHasta`, `horaArgentina`.
+> - Si no hay guardias programadas la tarjeta no desaparece: queda con "No tenés
+>   guardias programadas" y el link al calendario, así el lugar donde mirar es siempre el
+>   mismo.
+
 ## B. Smells / mejoras técnicas
 
 ### S1 — La baja lógica no corta el acceso 🔴 · hecho *(2026-07-30)*
@@ -475,6 +495,7 @@ controlan en app-level sin constraint DB.
 ### S7 — Ruido de "alta de guardia" en el cuaderno 🟢 · pendiente
 Cargar el cronograma mensual inunda la timeline con "Alta de guardia"
 (`app/novedades/page.tsx:55`).
+
 
 ### S9 — El link de activación usado/vencido no tenía salida 🟡 · hecho *(2026-07-31)*
 > **El síntoma real:** la gente **vuelve a entrar por el link de activación por

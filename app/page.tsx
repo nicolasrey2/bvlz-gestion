@@ -7,7 +7,12 @@ import {
   contextoDesdeUsuario,
 } from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
-import { NOMBRE_ROL } from "@/lib/dominio";
+import { NOMBRE_ROL, NOMBRE_TIPO_GUARDIA, horarioGuardia } from "@/lib/dominio";
+import { diasHasta, fmtDiaNumeroMes } from "@/lib/fechas";
+import {
+  proximaGuardiaDe,
+  type ProximaGuardia as ProximaGuardiaDatos,
+} from "@/server/guardiasConsultas";
 import { logout } from "./login/actions";
 import logoCuartel from "@/public/logo-cuartel.png";
 
@@ -58,6 +63,10 @@ export default async function Home() {
   const ctx = contextoDesdeUsuario(usuario);
   const esConduccion = puedeGestionarUsuarios(ctx);
 
+  // Recordatorio visual de la próxima guardia: es el dato que más se viene a
+  // buscar a la app, y hasta ahora había que entrar al calendario del mes.
+  const proximaGuardia = await proximaGuardiaDe(usuario.id, usuario.destacamentoId);
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-6 p-6">
       <header className="flex items-center justify-between gap-3">
@@ -84,6 +93,8 @@ export default async function Home() {
           {usuario.nombre} {usuario.apellido}
         </p>
       </div>
+
+      <ProximaGuardia guardia={proximaGuardia} />
 
       <nav className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Tarjeta href="/tareas" titulo="Tareas" desc="Crear y seguir" />
@@ -127,6 +138,61 @@ export default async function Home() {
       </p>
     </main>
   );
+}
+
+/// Tarjeta "Tu próxima guardia": la fecha grande (día, número y mes) para
+/// reconocerla de un vistazo, con el horario del tipo de guardia y cuánto falta.
+/// Toda la tarjeta linkea al calendario del mes.
+function ProximaGuardia({ guardia }: { guardia: ProximaGuardiaDatos | null }) {
+  if (!guardia) {
+    return (
+      <Link
+        href="/guardias"
+        className="rounded-2xl bg-white p-4 shadow-sm dark:bg-zinc-900"
+      >
+        <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          Tu próxima guardia
+        </span>
+        <span className="mt-1 block text-sm text-zinc-500">
+          No tenés guardias programadas. Ver el calendario →
+        </span>
+      </Link>
+    );
+  }
+
+  const dias = diasHasta(guardia.fecha);
+
+  return (
+    <Link
+      href="/guardias"
+      className="rounded-2xl bg-white p-4 shadow-sm transition-colors hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+          Tu próxima guardia
+        </span>
+        <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950 dark:text-red-200">
+          {cuandoEs(dias)}
+        </span>
+      </div>
+
+      <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+        {fmtDiaNumeroMes(guardia.fecha)}
+      </p>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        {NOMBRE_TIPO_GUARDIA[guardia.tipo]} · {horarioGuardia(guardia.tipo)}
+      </p>
+    </Link>
+  );
+}
+
+/// Etiqueta de cuánto falta. Los días negativos son la guardia de anoche que
+/// sigue en curso (arranca 22:00 y termina 08:00 — ver `proximaGuardiaDe`).
+function cuandoEs(dias: number): string {
+  if (dias < 0) return "En curso";
+  if (dias === 0) return "Hoy";
+  if (dias === 1) return "Mañana";
+  return `En ${dias} días`;
 }
 
 function Tarjeta({

@@ -58,6 +58,39 @@ export function fmtDiaSemana(d: Date): string {
   return d.toLocaleDateString("es-AR", { timeZone: "UTC", weekday: "short" });
 }
 
+/// Fecha "día" como "Dom 2 ago": día de la semana, número y mes. Para
+/// recordar de un vistazo cuándo es algo (la próxima guardia en la home), donde
+/// el año sobra y "02/08/2026" se lee más lento.
+///
+/// Se arma con `formatToParts` y no con un `toLocaleDateString` a secas porque
+/// es-AR mete una coma ("dom, 2 ago") y el día de la semana en minúscula.
+export function fmtDiaNumeroMes(d: Date): string {
+  const partes = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).formatToParts(d);
+
+  const parte = (tipo: Intl.DateTimeFormatPartTypes) =>
+    partes.find((p) => p.type === tipo)?.value ?? "";
+
+  const dia = parte("weekday").replace(".", "");
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${parte("day")} ${parte("month").replace(".", "")}`;
+}
+
+/// Cuántos días de calendario faltan desde hoy (en Argentina) hasta una fecha
+/// "día". 0 = hoy, 1 = mañana. Sirve para etiquetar sin recalcular fechas.
+export function diasHasta(fecha: Date, hoy = hoyArgentina()): number {
+  const desde = Date.UTC(hoy.y, hoy.m - 1, hoy.d);
+  const hasta = Date.UTC(
+    fecha.getUTCFullYear(),
+    fecha.getUTCMonth(),
+    fecha.getUTCDate(),
+  );
+  return Math.round((hasta - desde) / (24 * 60 * 60 * 1000));
+}
+
 /// Fecha "día" en el formato que espera un `<input type="date">`
 /// (`aaaa-mm-dd`), para precargar un formulario de edición. En UTC por el mismo
 /// motivo que `fmtFechaDia`: si no, el campo aparece con el día anterior.
@@ -67,14 +100,27 @@ export function fmtFechaInput(d: Date): string {
 
 // --- Cálculo del "día de hoy" en Argentina ----------------------------------
 
-/// Partes del día actual en Argentina: { y, m (1-12), d }.
-export function hoyArgentina(): { y: number; m: number; d: number } {
+/// Partes del día en Argentina: { y, m (1-12), d }. Por defecto, hoy; el
+/// parámetro existe para poder testear un instante fijo.
+export function hoyArgentina(ahora: Date = new Date()): {
+  y: number;
+  m: number;
+  d: number;
+} {
   // "en-CA" da formato ISO "YYYY-MM-DD".
-  const [y, m, d] = new Date()
+  const [y, m, d] = ahora
     .toLocaleDateString("en-CA", { timeZone: TZ })
     .split("-")
     .map(Number);
   return { y, m, d };
+}
+
+/// Hora del día (0-23) en Argentina. Para decidir cosas que dependen del
+/// momento del día, como si la guardia de anoche sigue en curso.
+export function horaArgentina(ahora: Date = new Date()): number {
+  return Number(
+    ahora.toLocaleString("en-CA", { timeZone: TZ, hour: "2-digit", hourCycle: "h23" }),
+  );
 }
 
 /// Rango [inicio, fin) del día AR como INSTANTES (para timestamps; Argentina es

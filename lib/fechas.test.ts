@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  diasHasta,
+  fmtDiaNumeroMes,
   fmtDiaSemana,
   fmtFecha,
   fmtFechaDia,
   fmtFechaHora,
+  fmtFechaInput,
   fmtHora,
+  horaArgentina,
   hoyArgentina,
   rangoDiaAR,
   rangoDiaUTC,
@@ -167,5 +171,77 @@ describe("rangoMesAR (rango de un mes AR como instantes UTC)", () => {
     const { inicio, fin } = rangoMesAR(2026, 12);
     expect(inicio.toISOString()).toBe("2026-12-01T03:00:00.000Z");
     expect(fin.toISOString()).toBe("2027-01-01T03:00:00.000Z");
+  });
+});
+
+describe("fmtDiaNumeroMes (día, número y mes para leer de un vistazo)", () => {
+  it("formatea como 'Vie 24 jul', con el día de la semana capitalizado", () => {
+    expect(fmtDiaNumeroMes(new Date("2026-07-24T00:00:00Z"))).toBe("Vie 24 jul");
+  });
+
+  it("no se corre de día por zona horaria", () => {
+    // Si se formateara en hora argentina, 01/08 daría "Vie 31 jul".
+    expect(fmtDiaNumeroMes(new Date("2026-08-01T00:00:00Z"))).toBe("Sáb 1 ago");
+  });
+
+  it("no rellena el día con cero (se lee más rápido)", () => {
+    expect(fmtDiaNumeroMes(new Date("2026-07-05T00:00:00Z"))).toBe("Dom 5 jul");
+  });
+
+  it("no deja puntos ni comas del formato de es-AR", () => {
+    expect(fmtDiaNumeroMes(new Date("2026-09-07T00:00:00Z"))).not.toMatch(/[.,]/);
+  });
+});
+
+describe("fmtFechaInput (fecha 'día' → valor de <input type='date'>)", () => {
+  it("devuelve aaaa-mm-dd", () => {
+    expect(fmtFechaInput(new Date("2026-07-24T00:00:00Z"))).toBe("2026-07-24");
+  });
+
+  it("no se corre al día anterior", () => {
+    expect(fmtFechaInput(new Date("2026-01-01T00:00:00Z"))).toBe("2026-01-01");
+  });
+});
+
+describe("horaArgentina", () => {
+  it("convierte el instante a la hora de Argentina (UTC-3)", () => {
+    // 01:30 UTC = 22:30 del día anterior en Argentina.
+    expect(horaArgentina(new Date("2026-07-24T01:30:00Z"))).toBe(22);
+  });
+
+  it("devuelve 0 a la medianoche argentina, no 24", () => {
+    expect(horaArgentina(new Date("2026-07-24T03:00:00Z"))).toBe(0);
+  });
+
+  it("devuelve un número entre 0 y 23 sin argumentos", () => {
+    const hora = horaArgentina();
+    expect(hora).toBeGreaterThanOrEqual(0);
+    expect(hora).toBeLessThanOrEqual(23);
+  });
+});
+
+describe("diasHasta (días de calendario desde hoy AR)", () => {
+  const HOY = { y: 2026, m: 7, d: 31 };
+
+  it("es 0 para hoy", () => {
+    expect(diasHasta(new Date("2026-07-31T00:00:00Z"), HOY)).toBe(0);
+  });
+
+  it("es 1 para mañana, incluso cruzando de mes", () => {
+    expect(diasHasta(new Date("2026-08-01T00:00:00Z"), HOY)).toBe(1);
+  });
+
+  it("cuenta los días cruzando meses", () => {
+    expect(diasHasta(new Date("2026-08-10T00:00:00Z"), HOY)).toBe(10);
+  });
+
+  it("es negativo para una fecha pasada (guardia de anoche en curso)", () => {
+    expect(diasHasta(new Date("2026-07-30T00:00:00Z"), HOY)).toBe(-1);
+  });
+
+  it("cuenta los días cruzando de año", () => {
+    expect(
+      diasHasta(new Date("2027-01-01T00:00:00Z"), { y: 2026, m: 12, d: 31 }),
+    ).toBe(1);
   });
 });
