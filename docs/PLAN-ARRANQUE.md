@@ -4,6 +4,18 @@ Objetivo: atacar en paralelo los 7 ítems priorizados, con **tracks que no pisan
 los mismos archivos** para poder trabajar sin bloquearse. Referencia de cada ítem:
 [`BACKLOG.md` §Análisis 2026-07-24](./BACKLOG.md#análisis-2026-07-24--catálogo-con-ids-estables).
 
+> **Fase 0 — CERRADA el 2026-07-30.** Quedó varada unos días en
+> `feat/batch-1-hardening` (commit `dd87375`) con el código listo pero sin aplicar.
+> Ya está todo hecho:
+> - Migración `20260725022138_batch1_adjuntos_cuarteleros` **aplicada** con
+>   `pnpm db:deploy`. Se usó `migrate deploy` y **no** `migrate dev` a propósito:
+>   dev y prod comparten el Supabase (ver `BACKLOG.md §0`) y `migrate dev` puede
+>   ofrecer resetear la base ante drift. La migración es puramente aditiva.
+> - Buckets `novedades` y `partes` **creados** (privados) con `pnpm setup:storage`.
+> - Verificado: typecheck limpio, 152 tests verdes, `pnpm build` OK.
+>
+> **Los tracks A–E ya se pueden abrir en paralelo.** Ninguno arrancó todavía.
+
 Ítems del batch:
 
 | ID | Título | Severidad |

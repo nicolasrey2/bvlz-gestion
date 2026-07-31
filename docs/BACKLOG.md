@@ -239,6 +239,65 @@ Simplificaciones v1 (TECH §5): `personal` textarea → jerarquía+apellido+chap
 - **Archivos:** `lib/partesDetalle.ts`, `components/FormNuevoParte.tsx`,
   `app/partes/[id]/page.tsx`, `pdf/`.
 
+### P7 — Cambiar el email de un usuario 🟡 · pendiente *(alta 2026-07-30)*
+Hoy la conducción puede cambiar rango, rol, estado y contacto, y resetear la
+contraseña (`server/personal.ts`, `server/activacion.ts:114`), pero **el email no
+se puede editar**. Los usuarios se dieron de alta con emails random de relleno y
+hay que reemplazarlos por los reales. El email es a la vez identificador de login
+(Supabase Auth) y campo `@unique` en `Usuario`, así que el cambio es en **dos
+lados**: Prisma y Supabase Auth (`admin.updateUserById`).
+- **Archivos:** `server/personal.ts` (acción `cambiarEmail`), `lib/supabase/admin.ts`,
+  `app/personal/[id]/**`, componente análogo al de reseteo de contraseña.
+- **Aceptación:** la conducción cambia el email de un usuario; queda normalizado
+  (minúsculas + `.email()`, ver **S4**); si ya existe da error claro; el usuario
+  puede loguearse con el email nuevo; el viejo deja de servir; queda registrado en
+  el cuaderno de novedades. Con test.
+- **Depende de:** S4 (normalización) — conviene hacerlos juntos, tocan el mismo archivo.
+- **Ojo:** decidir si el cambio re-dispara el link de activación o si la contraseña
+  actual se mantiene (recomendado: mantener contraseña, no invalidar la sesión).
+
+### P8 — Exportar el parte rellenando el PDF oficial 🟡 · pendiente *(alta 2026-07-30)*
+Hoy `/partes/[id]/pdf` **dibuja un PDF propio** con `@react-pdf/renderer`
+(`pdf/parte.tsx`, 395 líneas) que imita el formulario. El objetivo es **rellenar el
+PDF oficial** `docs/parte-intervencion-DTO3.pdf` para que la salida sea idéntica al
+formulario en papel del DTO 3.
+- **Viabilidad: alta.** El PDF oficial es un **AcroForm real** (2 páginas, 612×1008 pt)
+  con **424 campos**: 227 texto (`/Tx`), 114 botones (`/Btn`, checks/radios) y
+  10 listas (`/Ch`). Los nombres son legibles y mapean casi 1:1 al dominio ya
+  modelado en `lib/partesDetalle.ts` (`Servicio nº`, `Hora recepción`, `Hora
+  llegada`, `Hora regreso`, `Oficial actuante`, `Dirección`, `Localidad`, `Objeto`,
+  `Panorama`, `Origen`, `Causa`, `Propagación`, `Condiciones climáticas`,
+  `Paredes de`, `Techos de`, `Cantidad de pisos`, `Nombre víctima 1`,
+  `Chapa vehículo 1`, `Nº de tren`, `Datos tomados por`, `Firma Jefe del Cuerpo`…).
+  No hay que maquetar nada: se abre el PDF, se setean los campos y se serializa.
+- **Cómo:** `pdf-lib` (`getForm().getTextField(nombre).setText(...)`,
+  `getCheckBox(...).check()`) sobre el PDF plantilla. **No sirve `@react-pdf/renderer`**
+  para esto: genera documentos nuevos, no rellena existentes. Conviven sin problema:
+  se puede dejar la ruta actual y sumar la nueva.
+- **Archivos:** nueva dependencia `pdf-lib`; plantilla movida a `public/` o leída del
+  filesystem del server; `app/partes/[id]/pdf/route.tsx`, `lib/partesDetalle.ts`
+  (mapa dominio → nombre de campo del AcroForm).
+- **Trabajo real:** el grueso es el **mapa de nombres**, no la mecánica. Los campos de
+  las tablas repetidas (personal, vehículos, víctimas, concurrentes) usan nombres
+  numéricos (`0`…`11`, `1`…`5`) dentro de árboles jerárquicos → hay que volcar los
+  **nombres completamente calificados** una vez (script de un solo uso con
+  `form.getFields().map(f => f.getName())`) y fijarlos en una constante.
+- **Aceptación:** descargar el parte devuelve el PDF oficial relleno, con las
+  secciones del tipo de siniestro completas; los campos que no aplican quedan vacíos;
+  el PDF se puede aplanar (`form.flatten()`) para que no sea editable.
+- **Riesgos / decisiones:**
+  - El PDF trae **JavaScript embebido** (cálculos del Excel original). Si molesta al
+    rellenar, aplanar resuelve.
+  - Firmas y logo: hoy el PDF propio embebe el logo institucional; en el oficial los
+    campos `Firma …` son de texto → va el nombre, no una imagen.
+  - Los campos con nombre raro (`Dotac` / `/as`, `Descriprción de las tareas` con la
+    errata) hay que tomarlos **literales**, no "corregidos".
+  - Si el DTO 3 cambia el formulario, hay que revisar el mapa. Vale un test que falle
+    si un nombre esperado ya no existe en la plantilla.
+- **Relación:** cierra el módulo Partes junto con **P6** (concurrentes/personal
+  estructurados) y **P3** (fotos). P6 conviene **antes**: el PDF oficial pide
+  jerarquía/chapa/G/BP por separado, que es justo lo que P6 estructura.
+
 ## B. Smells / mejoras técnicas
 
 ### S1 — La baja lógica no corta el acceso 🔴 · pendiente
@@ -292,3 +351,43 @@ Cargar el cronograma mensual inunda la timeline con "Alta de guardia"
 | F8 | Firma del parte según rango (PRD §3.5) | Medio |
 | F9 | Inventario de materiales por área ligado a novedades | Medio |
 | F10 | Modo offline para fichar/cargar novedad sin señal | Alto |
+| F11 | **Alerta de intervención** (push + sonido/vibración + respuesta "voy / no voy") | Alto |
+
+### F11 — Alerta de intervención 🔴 · pendiente *(alta 2026-07-30)*
+Al entrar una intervención, disparar una **alerta a todos los bomberos del
+destacamento**: el celular **suena y vibra** aunque la app esté cerrada, y cada uno
+responde **"voy" / "no voy"**. La conducción ve en vivo quién viene.
+- **Por qué es Alto:** es el ítem más ambicioso del backlog. No alcanza con la PWA
+  instalable que ya existe (**F1** parcial: hay manifest, **no hay service worker**).
+  Requiere **Web Push** end-to-end.
+- **Piezas:**
+  1. **Service worker** con handler `push` + `notificationclick` (hoy no existe).
+  2. **Suscripción push** por dispositivo: claves **VAPID**, `PushManager.subscribe`,
+     modelo nuevo `SuscripcionPush` (endpoint, keys, usuarioId, userAgent) — un
+     usuario puede tener varios dispositivos.
+  3. **Modelo `AlertaIntervencion`** + `RespuestaAlerta` (usuarioId, `VOY`/`NO_VOY`,
+     timestamp). Ligable a `ParteIntervencion` cuando después se cargue el parte.
+  4. **Envío** con `web-push` desde una Server Action / Route Handler, en paralelo a
+     todos los suscriptos activos del destacamento; limpiar suscripciones caídas
+     (410/404).
+  5. **Acciones en la notificación** (`actions: [voy, no_voy]`) para responder **sin
+     abrir la app**; más pantalla de alerta con el conteo en vivo.
+  6. **Permisos:** quién puede disparar una alerta (conducción + guardia del día).
+- **Aceptación:** la conducción dispara la alerta; los celulares suscriptos suenan y
+  vibran; responder desde la notificación registra "voy/no voy"; hay una vista con
+  quién viene; la alerta queda en el cuaderno de novedades.
+- **Limitaciones reales a decidir antes de empezar (importante):**
+  - **iOS/Safari:** Web Push **solo funciona si la PWA está instalada** en la pantalla
+    de inicio (iOS 16.4+). En el navegador normal **no llega**. Hay que instruir a la
+    gente a instalarla.
+  - **Sonido:** la web **no puede elegir el tono** ni saltear el modo silencioso.
+    Suena el tono de notificación del sistema. Un "sonido de cuartel" fuerte y
+    garantizado **exige app nativa** — anotarlo como límite conocido.
+  - `requireInteraction` y `vibrate` andan en Android/Chrome; en iOS son ignorados.
+  - Los navegadores desuscriben solos si la app no se usa por mucho tiempo → hace
+    falta **re-suscribir al abrir** y un chequeo de salud de suscripciones.
+- **Sugerencia de encare:** partirlo en dos. **F11a** = service worker + suscripción +
+  push simple ("hay una intervención", abre la app) — ya es útil y desbloquea **F1/F3**.
+  **F11b** = respuesta voy/no voy desde la notificación + tablero en vivo.
+- **Archivos:** `prisma/schema.prisma` (3 modelos), `public/sw.js`, `lib/push.ts`,
+  `server/alertas.ts`, `app/alertas/**`, registro del SW en el layout, env vars VAPID.
