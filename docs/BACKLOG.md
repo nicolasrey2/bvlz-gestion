@@ -232,12 +232,18 @@ PRD §4.4 / §6. Hoy el nombre del cuartelero se tipea a mano en cada guardia
 - **Aceptación:** al armar guardia de cuartelero se elige de un catálogo (con alta
   rápida); las guardias viejas con nombre libre siguen funcionando.
 
-### P6 — Completar el parte oficial (v2) 🟢 · pendiente
+### P6 — Completar el parte oficial (v2) 🟡 · pendiente
 Simplificaciones v1 (TECH §5): `personal` textarea → jerarquía+apellido+chapa+G/BP;
 `concurrentes` string → tabla con N°/a cargo/matrícula/observaciones; separar
 "concurrió" vs "en el cuartel".
 - **Archivos:** `lib/partesDetalle.ts`, `components/FormNuevoParte.tsx`,
-  `app/partes/[id]/page.tsx`, `pdf/`.
+  `app/partes/[id]/page.tsx`, `lib/parteAcroForm.ts`.
+- **Subió de 🟢 a 🟡:** con **P8** hecho, cada campo que falta en el dominio es ahora
+  un casillero visiblemente vacío en el PDF oficial que se archiva. La lista completa
+  de lo que falta está en P8 y sirve de especificación.
+- **El mapeo al PDF ya está escrito**: P6 sólo tiene que estructurar los datos y
+  agregar las líneas correspondientes en `lib/parteAcroForm.ts`; no hay que rehacer
+  nada. Los helpers de tablas y `marcarPersonal()` ya existen.
 
 ### P7 — Cambiar el email de un usuario 🟡 · hecho *(2026-07-30)*
 > Resuelto: acción `cambiarEmail` en `server/personal.ts` + `components/CambiarEmail.tsx`,
@@ -265,7 +271,48 @@ lados**: Prisma y Supabase Auth (`admin.updateUserById`).
 - **Ojo:** decidir si el cambio re-dispara el link de activación o si la contraseña
   actual se mantiene (recomendado: mantener contraseña, no invalidar la sesión).
 
-### P8 — Exportar el parte rellenando el PDF oficial 🟡 · pendiente *(alta 2026-07-30)*
+### P8 — Exportar el parte rellenando el PDF oficial 🟡 · hecho *(2026-07-30)*
+> **Resuelto.** `lib/parteAcroForm.ts` mapea el dominio a los campos del AcroForm y
+> `app/partes/[id]/pdf/route.tsx` abre la plantilla, la limpia, la completa y la
+> devuelve. Se eliminó `pdf/parte.tsx` (el PDF dibujado a mano con
+> `@react-pdf/renderer`) y la dependencia, que quedaron sin uso.
+>
+> Decisiones que conviene recordar:
+> - **La plantilla oficial viene con un parte de ejemplo cargado** (servicio 0424,
+>   "Sargento Herrero"). `limpiarFormulario()` la vacía antes de completar; sin eso
+>   cada PDF saldría con datos ajenos en los campos que no llenamos. Hay un test que
+>   falla si esto se rompe.
+> - **Sólo se aplana (`flatten`) el parte CERRADO.** El abierto sale con los campos
+>   vivos, así en el cuartel pueden completar a mano lo que el sistema todavía no
+>   carga (ver lista abajo) antes de cerrarlo.
+> - **Listas desplegables:** se matchea contra la opción oficial ignorando
+>   mayúsculas/acentos; si el texto libre no está en la lista, se agrega y se
+>   selecciona igual — preferimos mostrar lo cargado antes que perderlo en silencio.
+> - **Los nombres de campo se toman literales, con erratas** (`Conuctor/a`,
+>   `Descriprción de las tareas`, `Dotac`): son el identificador real del PDF.
+> - `llenarFormularioParte()` devuelve `camposFaltantes`, y un test contra la
+>   plantilla real falla si el DTO 3 le cambia un nombre. La ruta además lo loguea.
+> - La plantilla se incluye en el deploy vía `outputFileTracingIncludes`
+>   (`next.config.ts`): Next no puede inferir la lectura por filesystem.
+> - Herramientas: `pnpm pdf:campos` (vuelca los nombres de la plantilla) y
+>   `pnpm pdf:muestra` (genera un PDF de prueba para revisar a ojo).
+>
+> **Qué NO se llena todavía** — el formulario tiene campos que el dominio no modela.
+> Es la especificación concreta de **P6**:
+> - Encabezado: `RUBA nº`, `Certific.`, `Informe nº`, `Jurisdicc. polic.`,
+>   `P. efectuado`, `Ubicación` (link a Google Maps), `Panorama`.
+> - Tiempos: `Hora circunscripto`, `dominado`, `extinguido`, `finalización`
+>   (el dominio sólo tiene aviso / llegada / regreso).
+> - Concurrentes: sólo se llena la columna **Observaciones**; faltan `Nº`,
+>   `A cargo` y `Matr./Leg./DNI` (el dominio guarda un texto libre por organismo).
+> - Vehículos: `Nº y origen del registro`, `Otros datos`, `Rodado tipo` (lista).
+> - Inmueble: `Nº de piso`. Datos complementarios: `Arrendatario/a` y su DNI.
+> - Personal: sólo la columna **Jerarquía y apellido**. Faltan `Ch.` (nº de móvil),
+>   `G` y `BP`, y toda la tabla **PERSONAL EN EL CUARTEL** (21 casilleros).
+>   `marcarPersonal()` ya está escrito y probado esperando a P6.
+> - Firma `Dpto. Técnico`.
+
+Texto original del relevamiento:
 Hoy `/partes/[id]/pdf` **dibuja un PDF propio** con `@react-pdf/renderer`
 (`pdf/parte.tsx`, 395 líneas) que imita el formulario. El objetivo es **rellenar el
 PDF oficial** `docs/parte-intervencion-DTO3.pdf` para que la salida sea idéntica al

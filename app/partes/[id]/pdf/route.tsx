@@ -1,29 +1,28 @@
-import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { PDFDocument } from "pdf-lib";
 import { prisma } from "@/lib/prisma";
 import { getContextoAuth } from "@/lib/auth";
-import { NOMBRE_TIPO_SINIESTRO } from "@/lib/dominio";
-import { ParteDocumento, type ParteParaPdf } from "@/pdf/parte";
+import {
+  limpiarFormulario,
+  llenarFormularioParte,
+  type ParteParaFormulario,
+} from "@/lib/parteAcroForm";
 
-/// Logo institucional embebido como data URI para el encabezado del PDF. Se
-/// lee una sola vez al cargar el módulo (archivo estático de `public/`); si
-/// falta o falla la lectura, el PDF se genera igual sin logo.
-function leerLogoDataUri(): string | undefined {
-  try {
-    const ruta = path.join(process.cwd(), "public", "logo-bomberos.jpeg");
-    const buffer = readFileSync(ruta);
-    return `data:image/jpeg;base64,${buffer.toString("base64")}`;
-  } catch {
-    return undefined;
-  }
-}
+/// Plantilla oficial del DTO 3. Se lee del repo en cada request (es un archivo
+/// de ~370 KB y hay que partir siempre de una copia limpia: `PDFDocument.load`
+/// devuelve un documento mutable que se completa y se descarta).
+/// El archivo se incluye en el deploy vía `outputFileTracingIncludes`
+/// (`next.config.ts`) — Next no puede inferir esta lectura por sí solo.
+const RUTA_PLANTILLA = path.join(
+  process.cwd(),
+  "docs",
+  "parte-intervencion-DTO3.pdf",
+);
 
-const logoDataUri = leerLogoDataUri();
-
-/// Exporta el parte de intervención a PDF. Requiere sesión y que el parte
-/// pertenezca al destacamento del usuario (misma regla que la página de
-/// detalle — un parte nunca cruza destacamentos).
+/// Exporta el parte rellenando el formulario oficial (P8). Requiere sesión y
+/// que el parte pertenezca al destacamento del usuario (misma regla que la
+/// página de detalle — un parte nunca cruza destacamentos).
 export async function GET(
   _request: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -34,18 +33,10 @@ export async function GET(
   const { id } = await ctx.params;
   const parte = await prisma.parteIntervencion.findFirst({
     where: { id, destacamentoId: auth.destacamentoId },
-    include: { creador: true, cerradoPor: true },
   });
   if (!parte) return new Response("No encontrado", { status: 404 });
 
-  const personal = Array.isArray(parte.personal)
-    ? (parte.personal as unknown[]).map(String)
-    : [];
-
-  const datos: ParteParaPdf = {
-    id: parte.id,
-    estado: parte.estado,
-    tipoSiniestro: NOMBRE_TIPO_SINIESTRO[parte.tipoSiniestro],
+  const datos: ParteParaFormulario = {
     servicioNro: parte.servicioNro,
     cuartel: parte.cuartel,
     fecha: parte.fecha,
@@ -59,28 +50,45 @@ export async function GET(
     bomberos: parte.bomberos,
     unidades: parte.unidades,
     descripcion: parte.descripcion,
-    personal,
+    personal: Array.isArray(parte.personal)
+      ? (parte.personal as unknown[]).map(String)
+      : [],
     datosTomadosPor: parte.datosTomadosPor,
     oficialActuante: parte.oficialActuante,
     jefeCuerpo: parte.jefeCuerpo,
-    creadorNombre: `${parte.creador.apellido}, ${parte.creador.nombre}`,
-    cerradoPorNombre: parte.cerradoPor
-      ? `${parte.cerradoPor.apellido}, ${parte.cerradoPor.nombre}`
-      : null,
-    cerradoEn: parte.cerradoEn,
     detalle: parte.detalle,
   };
 
-  const buffer = await renderToBuffer(
-    <ParteDocumento parte={datos} logoDataUri={logoDataUri} />,
-  );
+  const documento = await PDFDocument.load(await readFile(RUTA_PLANTILLA));
+  const formulario = documento.getForm();
 
-  // Response no acepta Buffer<ArrayBufferLike> directo en los tipos de DOM;
-  // se copia a un Uint8Array respaldado por un ArrayBuffer "puro".
-  return new Response(new Uint8Array(buffer), {
+  // La plantilla viene con un parte de ejemplo cargado: sin esto quedarían
+  // datos ajenos en los campos que no completamos.
+  limpiarFormulario(formulario);
+
+  const { camposFaltantes } = llenarFormularioParte(formulario, datos);
+  if (camposFaltantes.length > 0) {
+    // No es motivo para no entregar el PDF, pero sí para enterarse: significa
+    // que el DTO 3 cambió la plantilla y el mapeo quedó desactualizado.
+    console.warn(
+      `[parte ${parte.id}] campos ausentes en la plantilla oficial:`,
+      camposFaltantes.join(", "),
+    );
+  }
+
+  // Un parte cerrado se archiva: se aplana para que el PDF no sea editable.
+  // El abierto se deja con los campos vivos, así en el cuartel pueden
+  // completar a mano lo que el sistema todavía no carga (horas intermedias,
+  // columnas Ch./G/BP del personal) antes de cerrarlo.
+  if (parte.estado === "CERRADO") formulario.flatten();
+
+  const bytes = await documento.save();
+  const nombre = `parte-${parte.servicioNro ?? parte.id}.pdf`;
+
+  return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'inline; filename="parte.pdf"',
+      "Content-Disposition": `inline; filename="${nombre}"`,
     },
   });
 }
