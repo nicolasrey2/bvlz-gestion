@@ -11,9 +11,14 @@ export async function getAuthUser() {
   return user;
 }
 
-/// Usuario del dominio (tabla Usuario) vinculado a la sesión de Supabase,
-/// con sus roles vigentes. null si no está autenticado o no está vinculado.
-export async function getUsuarioActual() {
+/// Usuario del dominio (tabla Usuario) vinculado a la sesión de Supabase, con
+/// sus roles vigentes, SIN filtrar por estado. null si no está autenticado o no
+/// está vinculado.
+///
+/// Solo para los pocos casos que necesitan distinguir "no está vinculado" de
+/// "está dado de baja" — hoy, la home, para poder mostrar el mensaje correcto.
+/// Para operar hay que usar `getUsuarioActual()`.
+export async function getUsuarioVinculado() {
   const authUser = await getAuthUser();
   if (!authUser) return null;
 
@@ -25,6 +30,21 @@ export async function getUsuarioActual() {
       asignaciones: { where: { vigenteHasta: null }, include: { area: true } },
     },
   });
+}
+
+/// Usuario habilitado para operar: null si no está autenticado, si no está
+/// vinculado o si está dado de baja (`activo = false`).
+///
+/// S1 — la baja lógica corta el acceso. El chequeo va acá y no en el proxy por
+/// dos razones: el proxy no tiene acceso a Prisma, y esta función es el único
+/// camino hacia el `ContextoAuth`, así que cortando en un solo lugar quedan
+/// cubiertas todas las páginas y todas las Server Actions de una vez. Sin esto,
+/// desactivar a alguien no lo echaba: seguía operando hasta que venciera su
+/// sesión de Supabase.
+export async function getUsuarioActual() {
+  const usuario = await getUsuarioVinculado();
+  if (!usuario || !usuario.activo) return null;
+  return usuario;
 }
 
 /// Arma el ContextoAuth que consumen los helpers de lib/permisos.

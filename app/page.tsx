@@ -1,16 +1,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { getAuthUser, getUsuarioActual, contextoDesdeUsuario } from "@/lib/auth";
+import {
+  getAuthUser,
+  getUsuarioVinculado,
+  contextoDesdeUsuario,
+} from "@/lib/auth";
 import { puedeGestionarUsuarios } from "@/lib/permisos";
 import { NOMBRE_ROL } from "@/lib/dominio";
 import { logout } from "./login/actions";
 import logoCuartel from "@/public/logo-cuartel.png";
 
 export default async function Home() {
-  // Camino feliz: una sola consulta (getUsuarioActual). El proxy ya redirige a
-  // los no autenticados; solo si no hay usuario vinculado chequeamos la sesión.
-  const usuario = await getUsuarioActual();
+  // Camino feliz: una sola consulta. El proxy ya redirige a los no
+  // autenticados; solo si no hay usuario vinculado chequeamos la sesión.
+  // Se usa getUsuarioVinculado (no getUsuarioActual) porque acá hay que
+  // distinguir "no vinculado" de "dado de baja" para dar el mensaje correcto.
+  const usuario = await getUsuarioVinculado();
 
   if (!usuario) {
     const authUser = await getAuthUser();
@@ -21,6 +27,24 @@ export default async function Home() {
         <p className="max-w-sm text-zinc-600 dark:text-zinc-400">
           Tu cuenta todavía no está vinculada a un usuario del destacamento.
           Contactá al encargado.
+        </p>
+        <form action={logout}>
+          <button className="text-sm font-medium text-red-700 underline">
+            Cerrar sesión
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  // S1 — baja lógica: la cuenta existe pero está desactivada. No se le arma
+  // contexto de permisos, así que tampoco puede operar por otras rutas.
+  if (!usuario.activo) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="max-w-sm text-zinc-600 dark:text-zinc-400">
+          Tu cuenta está desactivada. Si creés que es un error, contactá al
+          encargado del destacamento.
         </p>
         <form action={logout}>
           <button className="text-sm font-medium text-red-700 underline">
