@@ -239,7 +239,16 @@ Simplificaciones v1 (TECH §5): `personal` textarea → jerarquía+apellido+chap
 - **Archivos:** `lib/partesDetalle.ts`, `components/FormNuevoParte.tsx`,
   `app/partes/[id]/page.tsx`, `pdf/`.
 
-### P7 — Cambiar el email de un usuario 🟡 · pendiente *(alta 2026-07-30)*
+### P7 — Cambiar el email de un usuario 🟡 · hecho *(2026-07-30)*
+> Resuelto: acción `cambiarEmail` en `server/personal.ts` + `components/CambiarEmail.tsx`,
+> montado en la ficha del usuario como sección "Email de acceso". Actualiza **Supabase
+> Auth y la tabla**, en ese orden, y revierte Auth si falla el guardado para no dejar
+> los dos lados desincronizados. **La contraseña no se toca** y la cuenta no vuelve a
+> "pendiente". Pendiente menor: no se registra en el cuaderno de novedades — ninguna
+> acción de conducción lo hace hoy (`cambiarRango`, `cambiarEstadoUsuario` tampoco) y
+> `TipoNovedad` no tiene un valor adecuado; si se quiere, va como ítem propio.
+
+Texto original del relevamiento:
 Hoy la conducción puede cambiar rango, rol, estado y contacto, y resetear la
 contraseña (`server/personal.ts`, `server/activacion.ts:114`), pero **el email no
 se puede editar**. Los usuarios se dieron de alta con emails random de relleno y
@@ -300,11 +309,15 @@ formulario en papel del DTO 3.
 
 ## B. Smells / mejoras técnicas
 
-### S1 — La baja lógica no corta el acceso 🔴 · pendiente
-`getUsuarioActual()` (`lib/auth.ts:16`) y el proxy no filtran `activo`. Un usuario
-desactivado sigue operando hasta que expire su sesión.
-- **Archivos:** `lib/auth.ts`, `lib/supabase/middleware.ts` (opcional).
-- **Aceptación:** `activo=false` ⇒ sin contexto válido, redirigido a login; con test.
+### S1 — La baja lógica no corta el acceso 🔴 · hecho *(2026-07-30)*
+~~`getUsuarioActual()` y el proxy no filtran `activo`.~~ → Resuelto en `lib/auth.ts`:
+`getUsuarioActual()` devuelve `null` si `activo = false`, así que no se arma
+`ContextoAuth` y quedan cubiertas todas las páginas y Server Actions de una sola vez.
+Se sumó `getUsuarioVinculado()` (sin filtrar) solo para que la home distinga
+"no vinculado" de "dado de baja" y muestre el mensaje correcto.
+- **No se tocó el proxy**: no tiene acceso a Prisma. El corte en la capa de auth
+  alcanza; el usuario desactivado que entra por otra ruta cae en `/login` y, al
+  reingresar, la home le explica que su cuenta está desactivada.
 
 ### S2 — Acciones que fallan en silencio 🟡 · pendiente
 `eliminarTarea`, `aprobarTarea`, `rechazarTarea`, `reasignarTarea`, `cederGuardia`,
@@ -320,11 +333,13 @@ destacamento pero no `activo`.
 - **Archivos:** `server/tareas.ts`, `server/guardias.ts`.
 - **Aceptación:** asignados/participantes deben ser `activo=true`; con test.
 
-### S4 — Email sin normalizar ni validar como email 🟡 · pendiente
-`esquema.email` es `z.string().trim().min(3)` (`server/personal.ts:26`): sin formato ni
-minúsculas; `Usuario.email` es `@unique` case-sensitive.
-- **Archivos:** `server/personal.ts` (y `app/login/actions.ts` por consistencia).
-- **Aceptación:** email validado y normalizado a minúsculas antes de crear; con test.
+### S4 — Email sin normalizar ni validar como email 🟡 · hecho *(2026-07-30)*
+~~`esquema.email` era `z.string().trim().min(3)`: sin formato ni minúsculas.~~ →
+Resuelto con `lib/email.ts` (`normalizarEmail` + `campoEmail`, que normaliza y recién
+después valida con `z.email()`). Lo usan `crearUsuario`, `cambiarEmail` (**P7**) y el
+login. Se sumó `emailOcupado()` con `mode: "insensitive"` porque la unicidad de
+Postgres distingue mayúsculas y quedan registros viejos sin normalizar; cambiar el
+email de uno de esos lo deja normalizado de paso.
 
 ### S5 — Carreras sin constraint de respaldo 🟢 · pendiente
 Doble fichada (`server/fichado.ts:41`) y roles singleton (`server/personal.ts:237`) se

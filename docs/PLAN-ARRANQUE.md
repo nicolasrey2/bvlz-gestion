@@ -107,14 +107,17 @@ Con Fase 0 hecha, **ningún track toca `schema.prisma` ni `scripts/setup-storage
 
 ## Checklist por track
 
-### Track A — Acceso & Personal (`feat/S1-S4-acceso`)
-- [ ] **S1:** `getUsuarioActual()` devuelve null si `activo=false`; la home/proxy
-      redirige a `/login` (mensaje "cuenta desactivada").
-- [ ] **S4:** email con `.email()` + `.toLowerCase()` en `crearUsuario` (y login por
-      consistencia); manejar unicidad case-insensitive.
+### Track A — Acceso & Personal (`feat/S1-S4-P7-acceso-email`) — parcial
+- [x] **S1:** `getUsuarioActual()` devuelve null si `activo=false`; la home muestra
+      "cuenta desactivada". El proxy no se tocó (no tiene Prisma).
+- [x] **S4:** `lib/email.ts` (`campoEmail`: normaliza y después valida con `z.email()`)
+      en `crearUsuario`, `cambiarEmail` y login; unicidad case-insensitive.
+- [x] **P7** (sumado al track, no estaba en el batch original): cambiar el email de
+      un usuario, en Supabase Auth y en la tabla.
 - [ ] **S2:** feedback en `cambiarRango`, `cambiarEstadoUsuario`, `finalizarRol`,
-      `asignarRol`.
-- [ ] Tests: acceso con usuario inactivo; normalización de email.
+      `asignarRol`. **Sigue pendiente** — son las 4 acciones mudas de este módulo.
+- [x] Tests: acceso con usuario inactivo; normalización de email; cambio de email
+      (permisos, duplicados, rollback). 152 → 179 tests.
 
 ### Track B — Tareas (`feat/S3-S2-tareas`)
 - [ ] **S3:** `crearTarea` y `reasignarTarea` solo aceptan asignados `activo=true`.
